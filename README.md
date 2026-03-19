@@ -33,7 +33,7 @@ sudo pacman -S base-devel cmake extra-cmake-modules qt6-base qt6-declarative \
   plasma-desktop plasma-workspace ksystemstats
 ```
 
-On other distros, install the equivalent `-dev` or `-devel` packages for: Qt6 (Core, Qml, Quick, DBus), KF6 (Config, I18n, KIO, Notifications, Service, WindowSystem), Plasma, PlasmaActivities, KSysGuard, and plasma-workspace (for LibTaskManager and LibNotificationManager).
+On other distros, install the equivalent `-dev` or `-devel` packages for: Qt6 (Core, Qml, Quick, DBus), KF6 (Config, I18n, KIO, Notifications, Service, WindowSystem), Plasma, PlasmaActivities, KSysGuard, and plasma-workspace (for LibTaskManager and LibNotificationManager). Then send me a pull request to change this file, or just chuck an issue in with a list of the stuff you had to install, that's fine too.
 
 ## Building and installing
 
@@ -66,3 +66,7 @@ sudo rm -rf /usr/lib/qt6/qml/plasma/applet/org/kde/plasma/groupedtaskmanager
 GPL-2.0-or-later, same as the original KDE Plasma Task Manager.
 
 Based on the [KDE Plasma Desktop](https://invent.kde.org/plasma/plasma-desktop) task manager applet by Eike Hein and the KDE community.
+
+## Vibes
+
+This whole thing was extremely vibecoded because I don't understand QML. I have honestly not looked at the sourcecode. Perhaps someday I will! I'll update this either when I think of it or when someone posts an issue asking me to do it. Or pesters me on Discord. You can pester me on Discord if you want, but you'll have to figure out my username (this will be extremely easy.)
