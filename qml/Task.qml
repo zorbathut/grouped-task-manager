@@ -471,16 +471,47 @@ PlasmaCore.ToolTipArea {
         property string basePrefix: "normal"
         prefix: isHovered ? TaskManagerApplet.TaskTools.taskPrefixHovered(basePrefix, Plasmoid.location) : TaskManagerApplet.TaskTools.taskPrefix(basePrefix, Plasmoid.location)
 
-        Rectangle {
+        // Color group tint: for unselected tabs, fills the whole area.
+        // For selected (active) tabs, only covers half so the selection
+        // highlight remains visible on the other half.
+        Item {
             id: colorGroupTint
             anchors.fill: parent
             property int colorIndex: 0
             visible: colorIndex > 0
-            color: colorIndex > 0
+
+            readonly property bool isActive: task.model.IsActive
+            readonly property color tintColor: colorIndex > 0
                 ? task.tasksRoot.colorGroupColors[colorIndex - 1]
                 : "transparent"
-            opacity: 0.15
-            radius: Math.max(frame.margins.top, 2)
+            readonly property real rad: Math.max(frame.margins.top, 2)
+
+            // Color tint — same for active and inactive since the
+            // frame's basePrefix is set to "normal" when active+colored.
+            Rectangle {
+                anchors.fill: parent
+                color: colorGroupTint.tintColor
+                opacity: 0.15
+                radius: colorGroupTint.rad
+            }
+
+            // Focus indicator on the non-colored half for active tabs.
+            // Uses the theme's highlight color to match the focus frame.
+            Rectangle {
+                visible: colorGroupTint.isActive
+                color: Kirigami.Theme.highlightColor
+                opacity: 0.6
+                radius: colorGroupTint.rad
+
+                anchors {
+                    top: task.tasksRoot.vertical ? parent.top : undefined
+                    left: task.tasksRoot.vertical ? undefined : parent.left
+                    bottom: parent.bottom
+                    right: parent.right
+                }
+                width: task.tasksRoot.vertical ? parent.width / 2 : parent.width
+                height: task.tasksRoot.vertical ? parent.height : parent.height / 2
+            }
 
             Connections {
                 target: colorManager
@@ -702,7 +733,9 @@ PlasmaCore.ToolTipArea {
             when: task.model.IsActive
 
             PropertyChanges {
-                frame.basePrefix: "focus"
+                // When colored, render as "normal" so the colored half
+                // looks identical to inactive. Focus is shown separately.
+                frame.basePrefix: colorGroupTint.colorIndex > 0 ? "normal" : "focus"
             }
         }
     ]
