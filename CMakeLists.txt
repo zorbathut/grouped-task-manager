@@ -109,6 +109,50 @@ install(FILES metadata.json
     DESTINATION ${KDE_INSTALL_DATADIR}/plasma/plasmoids/org.kde.plasma.groupedtaskmanager
 )
 
+# Install QML files into the plasmoid package's contents/ui/ directory.
+# Plasma requires ui/main.qml (the "mainscript") to exist in the package directory.
+set(_plasmoid_dir "${KDE_INSTALL_DATADIR}/plasma/plasmoids/org.kde.plasma.groupedtaskmanager")
+
+install(FILES
+    qml/AudioStream.qml
+    qml/Badge.qml
+    qml/ConfigAppearance.qml
+    qml/ConfigBehavior.qml
+    qml/ContextMenu.qml
+    qml/GroupDialog.qml
+    qml/GroupExpanderOverlay.qml
+    qml/main.qml
+    qml/MouseHandler.qml
+    qml/PipeWireThumbnail.qml
+    qml/PlayerController.qml
+    qml/PulseAudio.qml
+    qml/ScrollableTextWrapper.qml
+    qml/TaskBadgeOverlay.qml
+    qml/TaskList.qml
+    qml/TaskProgressOverlay.qml
+    qml/Task.qml
+    qml/ToolTipDelegate.qml
+    qml/ToolTipInstance.qml
+    qml/ToolTipWindowMouseArea.qml
+    DESTINATION "${_plasmoid_dir}/contents/ui"
+)
+
+install(FILES
+    qml/code/LayoutMetrics.js
+    qml/code/TaskTools.js
+    DESTINATION "${_plasmoid_dir}/contents/ui/code"
+)
+
+install(FILES
+    qml/config.qml
+    DESTINATION "${_plasmoid_dir}/contents/config"
+)
+
+install(FILES
+    main.xml
+    DESTINATION "${_plasmoid_dir}/contents/config"
+)
+
 # Install the QML module so the applet plugin can resolve its imports at runtime.
 # plasma_add_applet creates the QML module in the build dir but doesn't install it.
 set(_qml_module_dir "${CMAKE_BINARY_DIR}/bin/plasma/applet/org/kde/plasma/groupedtaskmanager")
