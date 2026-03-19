@@ -99,7 +99,9 @@ DropArea {
                             tasks.moveColorGroup(dragColor, tasks.dragSource.index, insertAt);
                         }
                     } else {
-                        // Uncolored task: normal move
+                        // Uncolored task: allow drag anywhere freely.
+                        // Contiguity enforcement will clean up after
+                        // the drag ends.
                         tasksModel.move(tasks.dragSource.index, insertAt);
                     }
                 }

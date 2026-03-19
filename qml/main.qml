@@ -80,6 +80,7 @@ PlasmoidItem {
     function enforceColorContiguity() {
         if (_enforcing) return;
         if (tasksModel.sortMode !== TaskManager.TasksModel.SortManual) return;
+        if (dragSource) return; // Don't enforce during active drags
 
         _enforcing = true;
 
@@ -263,6 +264,8 @@ PlasmoidItem {
     onDragSourceChanged: {
         if (dragSource === null) {
             tasksModel.syncLaunchers();
+            // Re-enforce contiguity after drag ends
+            enforceContiguityTimer.restart();
         }
     }
 
