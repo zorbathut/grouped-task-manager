@@ -746,6 +746,60 @@ PlasmaExtras.Menu {
         }
     }
 
+    PlasmaExtras.MenuItem {
+        id: colorGroupMenuItem
+
+        visible: menu.visualParent && menu.get(TaskManager.AbstractTasksModel.IsWindow)
+
+        enabled: visible
+
+        text: i18nc("@action:inmenu", "Color Group")
+        icon: "color-picker"
+
+        readonly property PlasmaExtras.Menu _colorGroupMenu: PlasmaExtras.Menu {
+            id: colorGroupMenu
+            visualParent: colorGroupMenuItem.action
+
+            function currentWindowId(): string {
+                let winIds = menu.get(TaskManager.AbstractTasksModel.WinIdList);
+                return (winIds && winIds.length > 0) ? String(winIds[0]) : "";
+            }
+
+            Component.onCompleted: {
+                let winId = currentWindowId();
+                let currentColor = colorManager.getColor(winId);
+
+                for (let i = 0; i < tasks.colorGroupColors.length; i++) {
+                    let menuItem = menu.newMenuItem(colorGroupMenu);
+                    menuItem.text = tasks.colorGroupNames[i];
+                    menuItem.checkable = true;
+                    menuItem.checked = (currentColor === i + 1);
+                    menuItem.icon = "edit-select";
+                    const colorIndex = i + 1;
+                    menuItem.clicked.connect(() => {
+                        let wid = currentWindowId();
+                        if (wid !== "") {
+                            colorManager.setColor(wid, colorIndex);
+                        }
+                    });
+                }
+
+                menu.newSeparator(colorGroupMenu);
+
+                let noneItem = menu.newMenuItem(colorGroupMenu);
+                noneItem.text = i18nc("@action:inmenu remove color group", "None");
+                noneItem.icon = "edit-clear";
+                noneItem.enabled = (currentColor > 0);
+                noneItem.clicked.connect(() => {
+                    let wid = currentWindowId();
+                    if (wid !== "") {
+                        colorManager.clearColor(wid);
+                    }
+                });
+            }
+        }
+    }
+
     PlasmaExtras.MenuItem { separator: true }
 
     PlasmaExtras.MenuItem {

@@ -14,6 +14,7 @@ include(KDEInstallDirs)
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 include(ECMQmlModule)
+include(ECMQtDeclareLoggingCategory)
 
 find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS
     Core
@@ -37,7 +38,8 @@ find_package(PlasmaActivitiesStats REQUIRED)
 find_package(KSysGuard REQUIRED)
 
 # LibTaskManager and LibNotificationManager from plasma-workspace
-find_package(PW REQUIRED COMPONENTS LibTaskManager LibNotificationManager)
+find_package(LibTaskManager REQUIRED)
+find_package(LibNotificationManager REQUIRED)
 
 add_definitions(-DTRANSLATION_DOMAIN=\"plasma_applet_org.kde.plasma.groupedtaskmanager\")
 
@@ -68,6 +70,7 @@ plasma_add_applet(org.kde.plasma.groupedtaskmanager
         qml/code/TaskTools.js
     CPP_SOURCES
         backend.cpp
+        colormanager.cpp
         smartlauncherbackend.cpp
         smartlauncheritem.cpp
     RESOURCES

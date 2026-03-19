@@ -154,6 +154,10 @@
       <label> Spacing between icons in task manager. Margin is multiplied by this value.</label>
       <default>1</default>
     </entry>
+    <entry name="colorGroupAssignments" type="StringList">
+      <label>Per-window color group assignments. Each entry is windowId=colorIndex (1-8).</label>
+      <default></default>
+    </entry>
   </group>
 
 </kcfg>

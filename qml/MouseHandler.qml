@@ -83,7 +83,25 @@ DropArea {
                     tasksModel.move(tasks.dragSource.index, insertAt,
                         tasksModel.makeModelIndex(tasks.groupDialog.visualParent.index));
                 } else {
-                    tasksModel.move(tasks.dragSource.index, insertAt);
+                    // Color group-aware drag logic
+                    const dragWinId = tasks.getWindowIdForTask(tasks.dragSource);
+                    const dragColor = dragWinId !== "" ? colorManager.getColor(dragWinId) : 0;
+
+                    if (dragColor > 0) {
+                        const bounds = tasks.findColorGroupBounds(dragColor);
+                        const insideGroup = (insertAt >= bounds.first && insertAt <= bounds.last);
+
+                        if (insideGroup) {
+                            // Normal single-item move within the color group
+                            tasksModel.move(tasks.dragSource.index, insertAt);
+                        } else {
+                            // Move the entire color group to the new position
+                            tasks.moveColorGroup(dragColor, tasks.dragSource.index, insertAt);
+                        }
+                    } else {
+                        // Uncolored task: normal move
+                        tasksModel.move(tasks.dragSource.index, insertAt);
+                    }
                 }
 
                 ignoredItem = above;

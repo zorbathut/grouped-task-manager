@@ -37,6 +37,174 @@ PlasmoidItem {
     property Task toolTipOpenedByClick
     property Task toolTipAreaItem
 
+    // Color group system
+    readonly property var colorGroupColors: [
+        "#e74c3c", "#3498db", "#2ecc71", "#f1c40f",
+        "#e67e22", "#9b59b6", "#1abc9c", "#e91e63"
+    ]
+    readonly property var colorGroupNames: [
+        "Red", "Blue", "Green", "Yellow",
+        "Orange", "Purple", "Teal", "Pink"
+    ]
+
+    readonly property TaskManagerApplet.ColorManager colorManager: TaskManagerApplet.ColorManager {
+        id: colorManager
+        colorAssignments: Plasmoid.configuration.colorGroupAssignments
+        onColorAssignmentsChanged: {
+            Plasmoid.configuration.colorGroupAssignments = colorAssignments;
+        }
+        onWindowColorChanged: (windowId, colorIndex) => {
+            enforceContiguityTimer.restart();
+        }
+    }
+
+    property bool _enforcing: false
+
+    Timer {
+        id: enforceContiguityTimer
+        interval: 50
+        onTriggered: tasks.enforceColorContiguity()
+    }
+
+    function getWindowIdForTask(task) {
+        if (!task || !task.model || !task.model.WinIdList) return "";
+        let ids = task.model.WinIdList;
+        return ids.length > 0 ? String(ids[0]) : "";
+    }
+
+    function getColorForTaskIndex(idx) {
+        let task = taskRepeater.itemAt(idx);
+        return colorManager.getColor(getWindowIdForTask(task));
+    }
+
+    function enforceColorContiguity() {
+        if (_enforcing) return;
+        if (tasksModel.sortMode !== TaskManager.TasksModel.SortManual) return;
+
+        _enforcing = true;
+
+        // Build a map of which indices have which colors
+        let count = taskRepeater.count;
+        // For each color, find all task indices that have it
+        let colorGroups = {}; // colorIndex -> [taskIndices]
+        for (let i = 0; i < count; i++) {
+            let c = getColorForTaskIndex(i);
+            if (c > 0) {
+                if (!colorGroups[c]) colorGroups[c] = [];
+                colorGroups[c].push(i);
+            }
+        }
+
+        // For each color group, check if indices are contiguous.
+        // If not, move stray members to be adjacent to the first member.
+        let moved = false;
+        for (let color in colorGroups) {
+            let indices = colorGroups[color];
+            if (indices.length <= 1) continue;
+
+            // Check contiguity: all indices should be consecutive
+            let isContiguous = true;
+            for (let j = 1; j < indices.length; j++) {
+                if (indices[j] !== indices[j-1] + 1) {
+                    isContiguous = false;
+                    break;
+                }
+            }
+
+            if (!isContiguous) {
+                // Move all members to be after the first member's position
+                let anchor = indices[0];
+                for (let j = 1; j < indices.length; j++) {
+                    let currentIdx = indices[j];
+                    let targetIdx = anchor + j;
+                    if (currentIdx !== targetIdx) {
+                        tasksModel.move(currentIdx, targetIdx);
+                        moved = true;
+                        // After a move, indices shift — restart the whole check
+                        _enforcing = false;
+                        enforceContiguityTimer.restart();
+                        return;
+                    }
+                }
+            }
+        }
+
+        _enforcing = false;
+    }
+
+    function findColorGroupBounds(color) {
+        let first = -1;
+        let last = -1;
+        for (let i = 0; i < taskRepeater.count; i++) {
+            if (getColorForTaskIndex(i) === color) {
+                if (first === -1) first = i;
+                last = i;
+            }
+        }
+        return { first: first, last: last };
+    }
+
+    function moveColorGroup(color, draggedIndex, targetIndex) {
+        // Collect all indices of tasks with this color, in order
+        let groupIndices = [];
+        for (let i = 0; i < taskRepeater.count; i++) {
+            if (getColorForTaskIndex(i) === color) {
+                groupIndices.push(i);
+            }
+        }
+        if (groupIndices.length === 0) return;
+
+        // Find position of dragged item within the group
+        let dragPosInGroup = groupIndices.indexOf(draggedIndex);
+        if (dragPosInGroup === -1) return;
+
+        // Calculate where the group should start so the dragged item
+        // ends up at or near targetIndex
+        let groupStart = targetIndex - dragPosInGroup;
+        groupStart = Math.max(0, Math.min(groupStart, taskRepeater.count - groupIndices.length));
+
+        // Move each group member to its target position, one at a time.
+        // Work from the target position outward to avoid index shifting issues.
+        if (groupStart <= groupIndices[0]) {
+            // Moving group left/up: move from first to last
+            for (let j = 0; j < groupIndices.length; j++) {
+                let dest = groupStart + j;
+                // Find where this group member currently is
+                // (indices may have shifted from prior moves)
+                let currentIdx = -1;
+                for (let k = 0; k < taskRepeater.count; k++) {
+                    if (getColorForTaskIndex(k) === color) {
+                        // Count how many group members we've passed
+                        let count = 0;
+                        for (let m = 0; m <= k; m++) {
+                            if (getColorForTaskIndex(m) === color) count++;
+                        }
+                        if (count === j + 1) { currentIdx = k; break; }
+                    }
+                }
+                if (currentIdx >= 0 && currentIdx !== dest) {
+                    tasksModel.move(currentIdx, dest);
+                }
+            }
+        } else {
+            // Moving group right/down: move from last to first
+            for (let j = groupIndices.length - 1; j >= 0; j--) {
+                let dest = groupStart + j;
+                let currentIdx = -1;
+                let seen = 0;
+                for (let k = taskRepeater.count - 1; k >= 0; k--) {
+                    if (getColorForTaskIndex(k) === color) {
+                        seen++;
+                        if (seen === groupIndices.length - j) { currentIdx = k; break; }
+                    }
+                }
+                if (currentIdx >= 0 && currentIdx !== dest) {
+                    tasksModel.move(currentIdx, dest);
+                }
+            }
+        }
+    }
+
     readonly property Component contextMenuComponent: Qt.createComponent("ContextMenu.qml")
     readonly property Component pulseAudioComponent: Qt.createComponent("PulseAudio.qml")
 
@@ -334,6 +502,24 @@ PlasmoidItem {
             }
             function onGroupingLauncherUrlBlacklistChanged(): void {
                 tasksModel.groupingLauncherUrlBlacklist = Plasmoid.configuration.groupingLauncherUrlBlacklist;
+            }
+        }
+
+        Connections {
+            target: tasksModel
+
+            function onRowsInserted(): void {
+                enforceContiguityTimer.restart();
+            }
+            function onRowsRemoved(): void {
+                // Clean up stale color assignments
+                let activeIds = [];
+                for (let i = 0; i < taskRepeater.count; i++) {
+                    let wid = tasks.getWindowIdForTask(taskRepeater.itemAt(i));
+                    if (wid !== "") activeIds.push(wid);
+                }
+                colorManager.removeStale(activeIds);
+                enforceContiguityTimer.restart();
             }
         }
 

@@ -471,6 +471,41 @@ PlasmaCore.ToolTipArea {
         property string basePrefix: "normal"
         prefix: isHovered ? TaskManagerApplet.TaskTools.taskPrefixHovered(basePrefix, Plasmoid.location) : TaskManagerApplet.TaskTools.taskPrefix(basePrefix, Plasmoid.location)
 
+        Rectangle {
+            id: colorGroupTint
+            anchors.fill: parent
+            property int colorIndex: 0
+            visible: colorIndex > 0
+            color: colorIndex > 0
+                ? task.tasksRoot.colorGroupColors[colorIndex - 1]
+                : "transparent"
+            opacity: 0.15
+            radius: Math.max(frame.margins.top, 2)
+
+            Connections {
+                target: colorManager
+                function onWindowColorChanged(windowId, colorIdx): void {
+                    let winIds = task.model.WinIdList;
+                    if (winIds && winIds.length > 0 && String(winIds[0]) === windowId) {
+                        colorGroupTint.colorIndex = colorIdx;
+                    }
+                }
+                function onColorAssignmentsChanged(): void {
+                    let winIds = task.model.WinIdList;
+                    if (winIds && winIds.length > 0) {
+                        colorGroupTint.colorIndex = colorManager.getColor(String(winIds[0]));
+                    }
+                }
+            }
+
+            Component.onCompleted: {
+                let winIds = task.model.WinIdList;
+                if (winIds && winIds.length > 0) {
+                    colorGroupTint.colorIndex = colorManager.getColor(String(winIds[0]));
+                }
+            }
+        }
+
         // Avoid repositioning delegate item after dragFinished
         DragHandler {
             id: dragHandler
@@ -678,6 +713,33 @@ PlasmaCore.ToolTipArea {
             component.createObject(task);
             component.destroy();
             updateAudioStreams({delay: false});
+
+            // Color group PID inheritance: if this window has no color,
+            // walk parent PIDs to find a colored ancestor.
+            let winIds = model.WinIdList;
+            if (winIds && winIds.length > 0) {
+                let winId = String(winIds[0]);
+                if (!colorManager.getColor(winId)) {
+                    let pid = model.AppPid;
+                    for (let depth = 0; depth < 5 && pid > 1; depth++) {
+                        pid = backend.parentPid(pid);
+                        if (pid <= 0) break;
+                        for (let i = 0; i < taskRepeater.count; i++) {
+                            let other = taskRepeater.itemAt(i);
+                            if (other && other.pid === pid) {
+                                let otherWinId = task.tasksRoot.getWindowIdForTask(other);
+                                let parentColor = colorManager.getColor(otherWinId);
+                                if (parentColor > 0) {
+                                    colorManager.setColor(winId, parentColor);
+                                    break;
+                                }
+                            }
+                        }
+                        // Check if we found a color (break out of outer loop too)
+                        if (colorManager.getColor(winId) > 0) break;
+                    }
+                }
+            }
         }
 
         if (!inPopup && !model.IsWindow) {
