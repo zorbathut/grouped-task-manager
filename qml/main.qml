@@ -66,6 +66,98 @@ PlasmoidItem {
         onTriggered: tasks.enforceColorContiguity()
     }
 
+    // Deferred color inheritance: queue windows and process them on the
+    // next event loop iteration, after all windows from the current batch
+    // (e.g. session restore) have been added to the repeater. This ensures
+    // the "all siblings colored" check sees the full set of windows.
+    property var _pendingInheritance: []
+    Timer {
+        id: inheritanceTimer
+        interval: 0
+        onTriggered: tasks.processPendingInheritance()
+    }
+
+    function processPendingInheritance() {
+        let pending = _pendingInheritance;
+        _pendingInheritance = [];
+        for (let item of pending) {
+            processColorInheritance(item.winId, item.pid);
+        }
+    }
+
+    function processColorInheritance(winId, pid) {
+        if (colorManager.getColor(winId)) return; // already colored
+
+        // Strategy 0: Same PID — inherit only if ALL same-PID siblings
+        // share one color. If any sibling is uncolored, the user chose
+        // not to color it, so new windows shouldn't auto-inherit.
+        let pidColor = 0;
+        let pidColorConsistent = true;
+        let hasSiblings = false;
+        for (let i = 0; i < taskRepeater.count; i++) {
+            let other = taskRepeater.itemAt(i);
+            if (!other || other.pid !== pid) continue;
+            let otherWinId = getWindowIdForTask(other);
+            if (otherWinId === winId) continue;
+            hasSiblings = true;
+            let c = colorManager.getColor(otherWinId);
+            if (c > 0) {
+                if (pidColor === 0) {
+                    pidColor = c;
+                } else if (pidColor !== c) {
+                    pidColorConsistent = false;
+                    break;
+                }
+            } else {
+                // Uncolored sibling exists — don't inherit.
+                pidColorConsistent = false;
+                break;
+            }
+        }
+        if (hasSiblings && pidColor > 0 && pidColorConsistent) {
+            colorManager.setColor(winId, pidColor);
+            return;
+        }
+
+        // Strategy 1: cgroup-based launcher detection
+        let launcherPids = backend.launcherPidsFromCgroup(pid);
+        for (let p = 0; p < launcherPids.length && !colorManager.getColor(winId); p++) {
+            let lPid = launcherPids[p];
+            for (let i = 0; i < taskRepeater.count; i++) {
+                let other = taskRepeater.itemAt(i);
+                if (other && other.pid === lPid) {
+                    let otherWinId = getWindowIdForTask(other);
+                    let parentColor = colorManager.getColor(otherWinId);
+                    if (parentColor > 0) {
+                        colorManager.setColor(winId, parentColor);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Strategy 2: PID tree walk (direct parent-child)
+        if (!colorManager.getColor(winId)) {
+            let walkPid = pid;
+            for (let depth = 0; depth < 5 && walkPid > 1; depth++) {
+                walkPid = backend.parentPid(walkPid);
+                if (walkPid <= 0) break;
+                for (let i = 0; i < taskRepeater.count; i++) {
+                    let other = taskRepeater.itemAt(i);
+                    if (other && other.pid === walkPid) {
+                        let otherWinId = getWindowIdForTask(other);
+                        let parentColor = colorManager.getColor(otherWinId);
+                        if (parentColor > 0) {
+                            colorManager.setColor(winId, parentColor);
+                            break;
+                        }
+                    }
+                }
+                if (colorManager.getColor(winId) > 0) break;
+            }
+        }
+    }
+
     function getWindowIdForTask(task) {
         if (!task || !task.model || !task.model.WinIdList) return "";
         let ids = task.model.WinIdList;

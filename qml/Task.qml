@@ -747,82 +747,18 @@ PlasmaCore.ToolTipArea {
             component.destroy();
             updateAudioStreams({delay: false});
 
-            // Color group inheritance: if this window has no color,
-            // check if it should inherit from an existing colored task.
-            // Strategy 0: Same PID — if all colored windows of this PID
-            //   share one color, inherit it (e.g. new Firefox window)
-            // Strategy 1: Check cgroup path for launcher PIDs
-            //   (covers apps launched from terminals, file managers, etc.)
-            // Strategy 2: Walk parent PIDs (covers direct fork/exec children)
+            // Queue color inheritance check for the next event loop
+            // iteration, when all windows from the current batch
+            // (e.g. session restore) will be present in the repeater.
             let winIds = model.WinIdList;
             if (winIds && winIds.length > 0) {
                 let winId = String(winIds[0]);
                 if (!colorManager.getColor(winId)) {
-                    let myPid = model.AppPid;
-
-                    // Strategy 0: same-PID inheritance
-                    let pidColor = 0;
-                    let pidColorConsistent = true;
-                    for (let i = 0; i < taskRepeater.count; i++) {
-                        let other = taskRepeater.itemAt(i);
-                        if (!other || other.pid !== myPid) continue;
-                        let otherWinId = task.tasksRoot.getWindowIdForTask(other);
-                        if (otherWinId === winId) continue;
-                        let c = colorManager.getColor(otherWinId);
-                        if (c > 0) {
-                            if (pidColor === 0) {
-                                pidColor = c;
-                            } else if (pidColor !== c) {
-                                pidColorConsistent = false;
-                                break;
-                            }
-                        }
-                    }
-                    if (pidColor > 0 && pidColorConsistent) {
-                        colorManager.setColor(winId, pidColor);
-                    }
-                }
-
-                if (!colorManager.getColor(winId)) {
-                    let myPid = model.AppPid;
-
-                    // Strategy 1: cgroup-based launcher detection
-                    let launcherPids = backend.launcherPidsFromCgroup(myPid);
-                    for (let p = 0; p < launcherPids.length && !colorManager.getColor(winId); p++) {
-                        let lPid = launcherPids[p];
-                        for (let i = 0; i < taskRepeater.count; i++) {
-                            let other = taskRepeater.itemAt(i);
-                            if (other && other.pid === lPid) {
-                                let otherWinId = task.tasksRoot.getWindowIdForTask(other);
-                                let parentColor = colorManager.getColor(otherWinId);
-                                if (parentColor > 0) {
-                                    colorManager.setColor(winId, parentColor);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // Strategy 2: PID tree walk (direct parent-child)
-                    if (!colorManager.getColor(winId)) {
-                        let pid = myPid;
-                        for (let depth = 0; depth < 5 && pid > 1; depth++) {
-                            pid = backend.parentPid(pid);
-                            if (pid <= 0) break;
-                            for (let i = 0; i < taskRepeater.count; i++) {
-                                let other = taskRepeater.itemAt(i);
-                                if (other && other.pid === pid) {
-                                    let otherWinId = task.tasksRoot.getWindowIdForTask(other);
-                                    let parentColor = colorManager.getColor(otherWinId);
-                                    if (parentColor > 0) {
-                                        colorManager.setColor(winId, parentColor);
-                                        break;
-                                    }
-                                }
-                            }
-                            if (colorManager.getColor(winId) > 0) break;
-                        }
-                    }
+                    task.tasksRoot._pendingInheritance.push({
+                        winId: winId,
+                        pid: model.AppPid
+                    });
+                    inheritanceTimer.restart();
                 }
             }
         }
