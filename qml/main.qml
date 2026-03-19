@@ -164,44 +164,20 @@ PlasmoidItem {
         let groupStart = targetIndex - dragPosInGroup;
         groupStart = Math.max(0, Math.min(groupStart, taskRepeater.count - groupIndices.length));
 
-        // Move each group member to its target position, one at a time.
-        // Work from the target position outward to avoid index shifting issues.
-        if (groupStart <= groupIndices[0]) {
-            // Moving group left/up: move from first to last
+        let originalFirst = groupIndices[0];
+        if (groupStart === originalFirst) return; // already in place
+
+        // The group is contiguous (enforced by enforceColorContiguity),
+        // so after each move we know exactly where members are without
+        // rescanning. Moving left: items above source don't shift.
+        // Moving right: items below source don't shift.
+        if (groupStart < originalFirst) {
             for (let j = 0; j < groupIndices.length; j++) {
-                let dest = groupStart + j;
-                // Find where this group member currently is
-                // (indices may have shifted from prior moves)
-                let currentIdx = -1;
-                for (let k = 0; k < taskRepeater.count; k++) {
-                    if (getColorForTaskIndex(k) === color) {
-                        // Count how many group members we've passed
-                        let count = 0;
-                        for (let m = 0; m <= k; m++) {
-                            if (getColorForTaskIndex(m) === color) count++;
-                        }
-                        if (count === j + 1) { currentIdx = k; break; }
-                    }
-                }
-                if (currentIdx >= 0 && currentIdx !== dest) {
-                    tasksModel.move(currentIdx, dest);
-                }
+                tasksModel.move(originalFirst + j, groupStart + j);
             }
         } else {
-            // Moving group right/down: move from last to first
             for (let j = groupIndices.length - 1; j >= 0; j--) {
-                let dest = groupStart + j;
-                let currentIdx = -1;
-                let seen = 0;
-                for (let k = taskRepeater.count - 1; k >= 0; k--) {
-                    if (getColorForTaskIndex(k) === color) {
-                        seen++;
-                        if (seen === groupIndices.length - j) { currentIdx = k; break; }
-                    }
-                }
-                if (currentIdx >= 0 && currentIdx !== dest) {
-                    tasksModel.move(currentIdx, dest);
-                }
+                tasksModel.move(originalFirst + j, groupStart + j);
             }
         }
     }

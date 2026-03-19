@@ -95,8 +95,15 @@ DropArea {
                             // Normal single-item move within the color group
                             tasksModel.move(tasks.dragSource.index, insertAt);
                         } else {
-                            // Move the entire color group to the new position
-                            tasks.moveColorGroup(dragColor, tasks.dragSource.index, insertAt);
+                            // Move the group by 1 position toward the cursor by
+                            // moving the adjacent non-group item across the group.
+                            // This is O(1) per event and prevents oscillation
+                            // (unlike moving all N group members at once).
+                            if (insertAt < bounds.first && bounds.first > 0) {
+                                tasksModel.move(bounds.first - 1, bounds.last);
+                            } else if (insertAt > bounds.last && bounds.last < taskRepeater.count - 1) {
+                                tasksModel.move(bounds.last + 1, bounds.first);
+                            }
                         }
                     } else {
                         // Uncolored task: allow drag anywhere freely.
