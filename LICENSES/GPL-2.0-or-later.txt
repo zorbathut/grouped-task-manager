@@ -1,0 +1,6 @@
+This project is a fork of the KDE Plasma Task Manager applet.
+
+SPDX-License-Identifier: GPL-2.0-or-later
+
+The full text of the GNU General Public License version 2 (or later)
+can be found at: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html

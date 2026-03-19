@@ -1,0 +1,22 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "hein@kde.org",
+                "Name": "Eike Hein"
+            }
+        ],
+        "Category": "Windows and Tasks",
+        "Description": "Task manager with color-coded grouping support",
+        "EnabledByDefault": true,
+        "Icon": "preferences-system-windows",
+        "Id": "org.kde.plasma.groupedtaskmanager",
+        "License": "GPL-2.0+",
+        "Name": "Grouped Task Manager",
+        "Website": "https://userbase.kde.org/Plasma/Tasks"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-Provides": [
+        "org.kde.plasma.multitasking"
+    ]
+}
