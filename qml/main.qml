@@ -83,6 +83,10 @@ PlasmoidItem {
         for (let item of pending) {
             processColorInheritance(item.winId, item.pid);
         }
+        // Ensure colored tasks are grouped contiguously after the
+        // initial batch is processed (covers both inherited colors
+        // and colors loaded from config).
+        enforceContiguityTimer.restart();
     }
 
     function processColorInheritance(winId, pid) {
