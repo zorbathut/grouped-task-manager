@@ -715,13 +715,41 @@ PlasmaCore.ToolTipArea {
             updateAudioStreams({delay: false});
 
             // Color group inheritance: if this window has no color,
-            // check if it was launched from a colored task.
+            // check if it should inherit from an existing colored task.
+            // Strategy 0: Same PID — if all colored windows of this PID
+            //   share one color, inherit it (e.g. new Firefox window)
             // Strategy 1: Check cgroup path for launcher PIDs
             //   (covers apps launched from terminals, file managers, etc.)
             // Strategy 2: Walk parent PIDs (covers direct fork/exec children)
             let winIds = model.WinIdList;
             if (winIds && winIds.length > 0) {
                 let winId = String(winIds[0]);
+                if (!colorManager.getColor(winId)) {
+                    let myPid = model.AppPid;
+
+                    // Strategy 0: same-PID inheritance
+                    let pidColor = 0;
+                    let pidColorConsistent = true;
+                    for (let i = 0; i < taskRepeater.count; i++) {
+                        let other = taskRepeater.itemAt(i);
+                        if (!other || other.pid !== myPid) continue;
+                        let otherWinId = task.tasksRoot.getWindowIdForTask(other);
+                        if (otherWinId === winId) continue;
+                        let c = colorManager.getColor(otherWinId);
+                        if (c > 0) {
+                            if (pidColor === 0) {
+                                pidColor = c;
+                            } else if (pidColor !== c) {
+                                pidColorConsistent = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (pidColor > 0 && pidColorConsistent) {
+                        colorManager.setColor(winId, pidColor);
+                    }
+                }
+
                 if (!colorManager.getColor(winId)) {
                     let myPid = model.AppPid;
 
