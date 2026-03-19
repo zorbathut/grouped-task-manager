@@ -103,3 +103,18 @@ target_link_libraries(org.kde.plasma.groupedtaskmanager PRIVATE
     KF6::WindowSystem
     PW::LibNotificationManager
 )
+
+# Install metadata.json so Plasma can discover the applet
+install(FILES metadata.json
+    DESTINATION ${KDE_INSTALL_DATADIR}/plasma/plasmoids/org.kde.plasma.groupedtaskmanager
+)
+
+# Install the QML module so the applet plugin can resolve its imports at runtime.
+# plasma_add_applet creates the QML module in the build dir but doesn't install it.
+set(_qml_module_dir "${CMAKE_BINARY_DIR}/bin/plasma/applet/org/kde/plasma/groupedtaskmanager")
+set(_qml_install_dir "${KDE_INSTALL_QMLDIR}/plasma/applet/org/kde/plasma/groupedtaskmanager")
+install(FILES
+    "${_qml_module_dir}/qmldir"
+    "${_qml_module_dir}/org.kde.plasma.groupedtaskmanager.qmltypes"
+    DESTINATION "${_qml_install_dir}"
+)
