@@ -714,19 +714,24 @@ PlasmaCore.ToolTipArea {
             component.destroy();
             updateAudioStreams({delay: false});
 
-            // Color group PID inheritance: if this window has no color,
-            // walk parent PIDs to find a colored ancestor.
+            // Color group inheritance: if this window has no color,
+            // check if it was launched from a colored task.
+            // Strategy 1: Check cgroup path for launcher PIDs
+            //   (covers apps launched from terminals, file managers, etc.)
+            // Strategy 2: Walk parent PIDs (covers direct fork/exec children)
             let winIds = model.WinIdList;
             if (winIds && winIds.length > 0) {
                 let winId = String(winIds[0]);
                 if (!colorManager.getColor(winId)) {
-                    let pid = model.AppPid;
-                    for (let depth = 0; depth < 5 && pid > 1; depth++) {
-                        pid = backend.parentPid(pid);
-                        if (pid <= 0) break;
+                    let myPid = model.AppPid;
+
+                    // Strategy 1: cgroup-based launcher detection
+                    let launcherPids = backend.launcherPidsFromCgroup(myPid);
+                    for (let p = 0; p < launcherPids.length && !colorManager.getColor(winId); p++) {
+                        let lPid = launcherPids[p];
                         for (let i = 0; i < taskRepeater.count; i++) {
                             let other = taskRepeater.itemAt(i);
-                            if (other && other.pid === pid) {
+                            if (other && other.pid === lPid) {
                                 let otherWinId = task.tasksRoot.getWindowIdForTask(other);
                                 let parentColor = colorManager.getColor(otherWinId);
                                 if (parentColor > 0) {
@@ -735,8 +740,27 @@ PlasmaCore.ToolTipArea {
                                 }
                             }
                         }
-                        // Check if we found a color (break out of outer loop too)
-                        if (colorManager.getColor(winId) > 0) break;
+                    }
+
+                    // Strategy 2: PID tree walk (direct parent-child)
+                    if (!colorManager.getColor(winId)) {
+                        let pid = myPid;
+                        for (let depth = 0; depth < 5 && pid > 1; depth++) {
+                            pid = backend.parentPid(pid);
+                            if (pid <= 0) break;
+                            for (let i = 0; i < taskRepeater.count; i++) {
+                                let other = taskRepeater.itemAt(i);
+                                if (other && other.pid === pid) {
+                                    let otherWinId = task.tasksRoot.getWindowIdForTask(other);
+                                    let parentColor = colorManager.getColor(otherWinId);
+                                    if (parentColor > 0) {
+                                        colorManager.setColor(winId, parentColor);
+                                        break;
+                                    }
+                                }
+                            }
+                            if (colorManager.getColor(winId) > 0) break;
+                        }
                     }
                 }
             }

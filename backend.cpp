@@ -25,10 +25,12 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
+#include <QFile>
 #include <QJsonArray>
 #include <QMenu>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QVersionNumber>
@@ -516,6 +518,40 @@ qint64 Backend::parentPid(qint64 pid) const
     }
 
     return -1;
+}
+
+QList<qint64> Backend::launcherPidsFromCgroup(qint64 pid) const
+{
+    QList<qint64> result;
+
+    // Read the cgroup path for this process.
+    // On systemd-based systems, apps launched from a terminal or app
+    // have cgroup paths like:
+    //   app-org.kde.konsole-9823.scope/tab(9865).scope
+    // The numbers are PIDs of the launching app/session.
+    QFile cgroupFile(QStringLiteral("/proc/%1/cgroup").arg(pid));
+    if (!cgroupFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return result;
+    }
+
+    const QString cgroupContent = QString::fromUtf8(cgroupFile.readAll());
+    cgroupFile.close();
+
+    // Extract PIDs from the cgroup path. Look for patterns like:
+    //   app-APPNAME-PID.scope  or  tab(PID).scope
+    static const QRegularExpression pidPattern(QStringLiteral("(?:-(\\d+)\\.scope|\\((\\d+)\\))"));
+    auto it = pidPattern.globalMatch(cgroupContent);
+    while (it.hasNext()) {
+        auto match = it.next();
+        const QString pidStr = match.captured(1).isEmpty() ? match.captured(2) : match.captured(1);
+        bool ok = false;
+        const qint64 foundPid = pidStr.toLongLong(&ok);
+        if (ok && foundPid > 1 && foundPid != pid) {
+            result.append(foundPid);
+        }
+    }
+
+    return result;
 }
 
 #include "moc_backend.cpp"
