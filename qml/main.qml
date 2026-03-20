@@ -77,6 +77,23 @@ PlasmoidItem {
         onTriggered: tasks.processPendingInheritance()
     }
 
+    // Deferred stale cleanup: must run after the Repeater has finished
+    // processing the row removal, otherwise model data objects still
+    // have pre-removal indices and colorAssignmentsChanged handlers
+    // read WinIdList from the wrong row.
+    Timer {
+        id: staleCleanupTimer
+        interval: 0
+        onTriggered: {
+            let activeIds = [];
+            for (let i = 0; i < taskRepeater.count; i++) {
+                let wid = tasks.getWindowIdForTask(taskRepeater.itemAt(i));
+                if (wid !== "") activeIds.push(wid);
+            }
+            colorManager.removeStale(activeIds);
+        }
+    }
+
     function processPendingInheritance() {
         let pending = _pendingInheritance;
         _pendingInheritance = [];
@@ -587,13 +604,7 @@ PlasmoidItem {
                 enforceContiguityTimer.restart();
             }
             function onRowsRemoved(): void {
-                // Clean up stale color assignments
-                let activeIds = [];
-                for (let i = 0; i < taskRepeater.count; i++) {
-                    let wid = tasks.getWindowIdForTask(taskRepeater.itemAt(i));
-                    if (wid !== "") activeIds.push(wid);
-                }
-                colorManager.removeStale(activeIds);
+                staleCleanupTimer.restart();
                 enforceContiguityTimer.restart();
             }
         }
