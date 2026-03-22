@@ -53,6 +53,7 @@ plasma_add_applet(org.kde.plasma.groupedtaskmanager
         qml/ContextMenu.qml
         qml/GroupDialog.qml
         qml/GroupExpanderOverlay.qml
+        qml/GroupHeader.qml
         qml/main.qml
         qml/MouseHandler.qml
         qml/PipeWireThumbnail.qml
@@ -121,6 +122,7 @@ install(FILES
     qml/ContextMenu.qml
     qml/GroupDialog.qml
     qml/GroupExpanderOverlay.qml
+    qml/GroupHeader.qml
     qml/main.qml
     qml/MouseHandler.qml
     qml/PipeWireThumbnail.qml

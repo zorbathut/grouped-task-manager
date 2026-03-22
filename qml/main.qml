@@ -47,14 +47,86 @@ PlasmoidItem {
         "Orange", "Purple", "Teal", "Pink"
     ]
 
+    // Custom category names
+    property var _customNameMap: ({})
+    property int colorAssignmentGeneration: 0
+    readonly property real groupHeaderHeight: Kirigami.Units.gridUnit * 0.9
+
+    // Row layout for vertical single-stripe mode: interleaves header rows before each color group
+    property var _rowLayout: ({ taskRows: [], headerRows: {}, headerCount: 0 })
+    readonly property int activeHeaderCount: _rowLayout.headerCount || 0
+
+    function _recomputeRowLayout() {
+        let count = taskRepeater.count;
+        if (!vertical || taskList.stripeCount !== 1 || count === 0) {
+            _rowLayout = { taskRows: [], headerRows: {}, headerCount: 0 };
+            return;
+        }
+        let taskRows = [];
+        let headerRows = {};
+        let offset = 0;
+        for (let i = 0; i < count; i++) {
+            let color = getColorForTaskIndex(i);
+            if (color > 0 && (i === 0 || getColorForTaskIndex(i - 1) !== color)) {
+                headerRows[color] = i + offset;
+                offset++;
+            }
+            taskRows.push(i + offset);
+        }
+        _rowLayout = { taskRows: taskRows, headerRows: headerRows, headerCount: offset };
+    }
+
+    onColorAssignmentGenerationChanged: _recomputeRowLayout()
+
+    function _parseCustomNames() {
+        let map = {};
+        let entries = Plasmoid.configuration.colorGroupCustomNames;
+        for (let i = 0; i < entries.length; i++) {
+            let eq = entries[i].indexOf("=");
+            if (eq > 0) {
+                let idx = parseInt(entries[i].substring(0, eq));
+                let name = entries[i].substring(eq + 1);
+                if (idx >= 1 && idx <= 8 && name.length > 0) {
+                    map[idx] = name;
+                }
+            }
+        }
+        _customNameMap = map;
+    }
+
+    function getColorGroupName(colorIndex) {
+        if (_customNameMap[colorIndex]) return _customNameMap[colorIndex];
+        if (colorIndex >= 1 && colorIndex <= 8) return colorGroupNames[colorIndex - 1];
+        return "";
+    }
+
+    function setColorGroupName(colorIndex, name) {
+        let newMap = Object.assign({}, _customNameMap);
+        name = name.trim();
+        if (name === "" || name === colorGroupNames[colorIndex - 1]) {
+            delete newMap[colorIndex];
+        } else {
+            newMap[colorIndex] = name;
+        }
+        _customNameMap = newMap;
+        let entries = [];
+        for (let k in newMap) {
+            entries.push(k + "=" + newMap[k]);
+        }
+        Plasmoid.configuration.colorGroupCustomNames = entries;
+    }
+
     readonly property TaskManagerApplet.ColorManager colorManager: TaskManagerApplet.ColorManager {
         id: colorManager
-        colorAssignments: Plasmoid.configuration.colorGroupAssignments
         onColorAssignmentsChanged: {
             Plasmoid.configuration.colorGroupAssignments = colorAssignments;
         }
         onWindowColorChanged: (windowId, colorIndex) => {
             enforceContiguityTimer.restart();
+            tasks.colorAssignmentGeneration++;
+        }
+        Component.onCompleted: {
+            colorAssignments = Plasmoid.configuration.colorGroupAssignments;
         }
     }
 
@@ -243,6 +315,7 @@ PlasmoidItem {
             }
         }
 
+        colorAssignmentGeneration++;
         _enforcing = false;
     }
 
@@ -293,6 +366,7 @@ PlasmoidItem {
                 tasksModel.move(originalFirst + j, groupStart + j);
             }
         }
+        colorAssignmentGeneration++;
     }
 
     readonly property Component contextMenuComponent: Qt.createComponent("ContextMenu.qml")
@@ -355,6 +429,7 @@ PlasmoidItem {
             tasksModel.syncLaunchers();
             // Re-enforce contiguity after drag ends
             enforceContiguityTimer.restart();
+            colorAssignmentGeneration++;
         }
     }
 
@@ -384,6 +459,7 @@ PlasmoidItem {
         for (let i = 0; i < taskItems.length - 1; ++i) {
             const task = taskItems[i];
 
+            if (!task.model) continue;
             if (!task.model.IsLauncher && !task.model.IsStartup) {
                 tasksModel.requestPublishDelegateGeometry(tasksModel.makeModelIndex(task.index),
                     backend.globalRect(task), task);
@@ -710,13 +786,15 @@ PlasmoidItem {
                 }
 
                 count: tasksModel.count
+                extraRows: tasks.vertical && stripeCount === 1 ? tasks.activeHeaderCount : 0
 
-                readonly property real widthOccupation: taskRepeater.count / columns
-                readonly property real heightOccupation: taskRepeater.count / rows
+                readonly property int totalItemCount: taskRepeater.count + extraRows
+                readonly property real widthOccupation: totalItemCount / columns
+                readonly property real heightOccupation: totalItemCount / rows
 
                 Layout.maximumWidth: {
                     const totalMaxWidth = children.reduce((accumulator, child) => {
-                            if (!isFinite(child.Layout.maximumWidth)) {
+                            if (!child.visible || !isFinite(child.Layout.maximumWidth)) {
                                 return accumulator;
                             }
                             return accumulator + child.Layout.maximumWidth
@@ -725,7 +803,7 @@ PlasmoidItem {
                 }
                 Layout.maximumHeight: {
                     const totalMaxHeight = children.reduce((accumulator, child) => {
-                            if (!isFinite(child.Layout.maximumHeight)) {
+                            if (!child.visible || !isFinite(child.Layout.maximumHeight)) {
                                 return accumulator;
                             }
                             return accumulator + child.Layout.maximumHeight
@@ -768,8 +846,18 @@ PlasmoidItem {
 
                 Repeater {
                     id: taskRepeater
+                    onCountChanged: tasks._recomputeRowLayout()
 
                     delegate: Task {
+                        tasksRoot: tasks
+                    }
+                }
+
+                Repeater {
+                    id: headerRepeater
+                    model: 8
+
+                    delegate: GroupHeader {
                         tasksRoot: tasks
                     }
                 }
@@ -836,6 +924,8 @@ PlasmoidItem {
     Component.onCompleted: {
         TaskManagerApplet.TaskTools.taskManagerInstanceCount += 1;
         requestLayout.connect(iconGeometryTimer.restart);
+        _parseCustomNames();
+        _recomputeRowLayout();
     }
 
     Component.onDestruction: {

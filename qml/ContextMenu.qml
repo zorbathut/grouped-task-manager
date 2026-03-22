@@ -771,7 +771,7 @@ PlasmaExtras.Menu {
 
                 for (let i = 0; i < tasks.colorGroupColors.length; i++) {
                     let menuItem = menu.newMenuItem(colorGroupMenu);
-                    menuItem.text = tasks.colorGroupNames[i];
+                    menuItem.text = tasks.getColorGroupName(i + 1);
                     menuItem.checkable = true;
                     menuItem.checked = (currentColor === i + 1);
                     menuItem.icon = "edit-select";

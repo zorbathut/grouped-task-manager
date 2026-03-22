@@ -158,6 +158,10 @@
       <label>Per-window color group assignments. Each entry is windowId=colorIndex (1-8).</label>
       <default></default>
     </entry>
+    <entry name="colorGroupCustomNames" type="StringList">
+      <label>Custom names for color groups. Each entry is colorIndex=name (1-8).</label>
+      <default></default>
+    </entry>
   </group>
 
 </kcfg>

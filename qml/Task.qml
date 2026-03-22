@@ -44,6 +44,17 @@ PlasmaCore.ToolTipArea {
         ? -1
         : ((model.IsLauncher && !tasksRoot.iconsOnly) ? tasksRoot.height / taskList.rows : TaskManagerApplet.LayoutMetrics.preferredMaxWidth())
     Layout.maximumHeight: tasksRoot.vertical ? TaskManagerApplet.LayoutMetrics.preferredMaxHeight() : -1
+    Layout.row: {
+        let rl = tasksRoot._rowLayout;
+        if (!rl || !rl.taskRows || index >= rl.taskRows.length) return -1;
+        let row = rl.taskRows[index];
+        return (row !== undefined && row !== null) ? row : -1;
+    }
+    Layout.column: {
+        let rl = tasksRoot._rowLayout;
+        if (!rl || !rl.taskRows || index >= rl.taskRows.length) return -1;
+        return 0;
+    }
 
     required property var model
     required property int index

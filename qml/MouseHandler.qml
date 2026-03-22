@@ -113,6 +113,8 @@ DropArea {
                     }
                 }
 
+                tasks._recomputeRowLayout();
+
                 ignoredItem = above;
                 ignoreItemTimer.restart();
             }

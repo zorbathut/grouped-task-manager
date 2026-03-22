@@ -23,6 +23,7 @@ GridLayout {
     }
 
     required property int count
+    property int extraRows: 0
 
     readonly property bool vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
 
@@ -57,6 +58,6 @@ GridLayout {
         return Math.ceil(count / stripeCount);
     }
 
-    rows: vertical ? orthogonalCount : stripeCount
+    rows: vertical ? orthogonalCount + extraRows : stripeCount
     columns: vertical ? stripeCount : orthogonalCount
 }
