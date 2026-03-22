@@ -11,6 +11,7 @@ import QtQuick.Layouts
 
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
+import org.kde.plasma.components as PlasmaComponents3
 import org.kde.kirigami as Kirigami
 
 Item {
@@ -52,7 +53,6 @@ Item {
 
     Text {
         id: headerLabel
-        visible: !headerEditor.visible
         anchors.fill: parent
         anchors.leftMargin: Kirigami.Units.smallSpacing
         anchors.rightMargin: Kirigami.Units.smallSpacing
@@ -70,38 +70,57 @@ Item {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                headerEditor.text = headerLabel.text;
-                headerEditor.visible = true;
-                headerEditor.forceActiveFocus();
-                headerEditor.selectAll();
+                editPopup.open();
             }
         }
     }
 
-    TextInput {
-        id: headerEditor
-        visible: false
-        anchors.fill: parent
-        anchors.leftMargin: Kirigami.Units.smallSpacing
-        anchors.rightMargin: Kirigami.Units.smallSpacing
-        font: headerLabel.font
-        color: Kirigami.Theme.textColor
-        clip: true
-        selectByMouse: true
-        verticalAlignment: TextInput.AlignVCenter
+    PlasmaCore.PopupPlasmaWindow {
+        id: editPopup
 
-        onAccepted: commitEdit()
-        onActiveFocusChanged: {
-            if (!activeFocus && visible) commitEdit();
+        visualParent: header
+        popupDirection: switch (Plasmoid.location) {
+            case PlasmaCore.Types.TopEdge:
+                return Qt.BottomEdge
+            case PlasmaCore.Types.LeftEdge:
+                return Qt.RightEdge
+            case PlasmaCore.Types.RightEdge:
+                return Qt.LeftEdge
+            default:
+                return Qt.TopEdge
         }
 
-        Keys.onEscapePressed: {
-            visible = false;
+        width: editField.implicitWidth + Kirigami.Units.largeSpacing * 2
+        height: editField.implicitHeight + Kirigami.Units.largeSpacing * 2
+
+        onActiveChanged: {
+            if (!active && visible) {
+                commitAndClose();
+            }
         }
 
-        function commitEdit() {
+        function open() {
+            editField.text = headerLabel.text;
+            visible = true;
+            editField.forceActiveFocus();
+            editField.selectAll();
+        }
+
+        function commitAndClose() {
             visible = false;
-            header.tasksRoot.setColorGroupName(header.colorIndex, text);
+            header.tasksRoot.setColorGroupName(header.colorIndex, editField.text);
+        }
+
+        PlasmaComponents3.TextField {
+            id: editField
+            anchors.centerIn: parent
+            implicitWidth: Math.max(Kirigami.Units.gridUnit * 10, header.width)
+
+            onAccepted: editPopup.commitAndClose()
+
+            Keys.onEscapePressed: {
+                editPopup.visible = false;
+            }
         }
     }
 }
