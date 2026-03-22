@@ -22,32 +22,27 @@ DropArea {
 
     property alias handleWheelEvents: wheelHandler.handleWheelEvents
 
-    //ignore anything that is neither internal to TaskManager or a URL list
-    onEntered: event => {
-        if (event.formats.indexOf("text/x-plasmoidservicename") >= 0) {
-            event.accepted = false;
-        }
-        if (target.animating) { // Not all targets have an animating property
-            target.animating = false;
-        }
+    // Drag move coalescing: save the latest cursor position and process
+    // only the most recent one on the next event loop pass. This skips
+    // redundant intermediate moves when the UI can't keep up.
+    property real _pendingDragX: 0
+    property real _pendingDragY: 0
+
+    Timer {
+        id: dragCoalesceTimer
+        interval: 0
+        onTriggered: dropArea._processDragMove(dropArea._pendingDragX, dropArea._pendingDragY)
     }
 
-    onPositionChanged: event => {
-        if (target.animating) {
-            return;
-        }
-
+    function _processDragMove(x, y) {
         let above;
         if (isGroupDialog) {
-            above = target.itemAt(event.x, event.y);
+            above = target.itemAt(x, y);
         } else {
-            above = target.childAt(event.x, event.y);
+            above = target.childAt(x, y);
         }
 
         if (!above) {
-            hoveredItem = null;
-            activationTimer.stop();
-
             return;
         }
 
@@ -117,8 +112,56 @@ DropArea {
 
                 ignoredItem = above;
                 ignoreItemTimer.restart();
+
+                // Color group moves advance 1 position per step. If the
+                // source hasn't reached the cursor yet, keep going next
+                // frame so the group catches up smoothly.
+                if (tasks.dragSource !== above && tasks.dragSource.index !== insertAt) {
+                    dragCoalesceTimer.restart();
+                }
             }
-        } else if (!tasks.dragSource && hoveredItem !== above) {
+        }
+    }
+
+    //ignore anything that is neither internal to TaskManager or a URL list
+    onEntered: event => {
+        if (event.formats.indexOf("text/x-plasmoidservicename") >= 0) {
+            event.accepted = false;
+        }
+        if (target.animating) { // Not all targets have an animating property
+            target.animating = false;
+        }
+    }
+
+    onPositionChanged: event => {
+        if (target.animating) {
+            return;
+        }
+
+        // For drag moves, coalesce events: only process the most recent
+        // position on the next event loop pass, skipping intermediate ones.
+        if (tasksModel.sortMode === TaskManager.TasksModel.SortManual && tasks.dragSource) {
+            _pendingDragX = event.x;
+            _pendingDragY = event.y;
+            dragCoalesceTimer.restart();
+            return;
+        }
+
+        // Non-drag hover: process immediately for activation timer
+        let above;
+        if (isGroupDialog) {
+            above = target.itemAt(event.x, event.y);
+        } else {
+            above = target.childAt(event.x, event.y);
+        }
+
+        if (!above) {
+            hoveredItem = null;
+            activationTimer.stop();
+            return;
+        }
+
+        if (hoveredItem !== above) {
             hoveredItem = above;
             activationTimer.restart();
         }
