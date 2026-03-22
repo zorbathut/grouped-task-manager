@@ -41,6 +41,15 @@ Item {
     implicitHeight: header.tasksRoot.groupHeaderHeight
     implicitWidth: parent ? parent.width : 0
 
+    Rectangle {
+        anchors.fill: parent
+        color: header.colorIndex >= 1 && header.colorIndex <= 8
+            ? header.tasksRoot.colorGroupColors[header.colorIndex - 1]
+            : "transparent"
+        opacity: 0.15
+        radius: 2
+    }
+
     Text {
         id: headerLabel
         visible: !headerEditor.visible
