@@ -141,9 +141,21 @@ PlasmoidItem {
     // Track which window per PID was most recently focused. Used to
     // disambiguate when a parent PID owns multiple windows with different
     // colors (e.g. multiple Rider project windows sharing one JVM).
+    //
+    // _settledActiveByPid is a delayed snapshot that only updates after
+    // 150ms of no activations. This filters out rapid focus bouncing
+    // (e.g. Konsole's internal tab management when creating a new tab)
+    // while capturing deliberate user focus changes.
     property var _lastActiveByPid: ({})
+    property var _settledActiveByPid: ({})
+    Timer {
+        id: activationSettleTimer
+        interval: 150
+        onTriggered: tasks._settledActiveByPid = Object.assign({}, tasks._lastActiveByPid)
+    }
     function recordWindowActivation(pid, winId) {
         _lastActiveByPid[pid] = winId;
+        activationSettleTimer.restart();
     }
 
     // Deferred color inheritance: queue windows and process them on the
@@ -263,11 +275,15 @@ PlasmoidItem {
         if (candidates.every(c => c.color === candidates[0].color))
             return candidates[0].color;
 
-        // Disambiguate: prefer the most recently active window for this PID.
-        let preferred = _lastActiveByPid[targetPid];
+        // Disambiguate: prefer the window that was stably focused before
+        // any rapid focus bouncing (e.g. Konsole tab creation).
+        let preferred = _settledActiveByPid[targetPid];
         if (preferred) {
             let match = candidates.find(c => c.winId === preferred);
             if (match) return match.color;
+            // Preferred window is uncolored — user was in an uncolored
+            // window, so the new window should stay uncolored too.
+            return 0;
         }
 
         // No activation history — don't guess.
