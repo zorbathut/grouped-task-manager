@@ -174,11 +174,21 @@ PlasmoidItem {
         }
     }
 
+    property bool _startupBatchDone: false
+
     function processPendingInheritance() {
         let pending = _pendingInheritance;
         _pendingInheritance = [];
-        for (let item of pending) {
-            processColorInheritance(item.winId, item.pid);
+        if (!_startupBatchDone) {
+            // First batch after (re)start — the config already has the
+            // correct colors for all existing windows. Running inheritance
+            // here would virally spread colors to intentionally-uncolored
+            // windows (and from there to their children). Skip it.
+            _startupBatchDone = true;
+        } else {
+            for (let item of pending) {
+                processColorInheritance(item.winId, item.pid);
+            }
         }
         // Ensure colored tasks are grouped contiguously after the
         // initial batch is processed (covers both inherited colors
