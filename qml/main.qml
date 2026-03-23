@@ -124,6 +124,7 @@ PlasmoidItem {
         onWindowColorChanged: (windowId, colorIndex) => {
             enforceContiguityTimer.restart();
             tasks.colorAssignmentGeneration++;
+            orphanedNameTimer.restart();
         }
         Component.onCompleted: {
             colorAssignments = Plasmoid.configuration.colorGroupAssignments;
@@ -183,6 +184,27 @@ PlasmoidItem {
                 if (wid !== "") activeIds.push(wid);
             }
             colorManager.removeStale(activeIds);
+            tasks.clearOrphanedColorNames();
+        }
+    }
+
+    Timer {
+        id: orphanedNameTimer
+        interval: 0
+        onTriggered: tasks.clearOrphanedColorNames()
+    }
+
+    // Reset custom names for colors that no longer have any windows.
+    function clearOrphanedColorNames() {
+        let activeColors = new Set();
+        for (let i = 0; i < taskRepeater.count; i++) {
+            let c = getColorForTaskIndex(i);
+            if (c > 0) activeColors.add(c);
+        }
+        for (let colorIdx in _customNameMap) {
+            if (!activeColors.has(Number(colorIdx))) {
+                setColorGroupName(Number(colorIdx), "");
+            }
         }
     }
 
