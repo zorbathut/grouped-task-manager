@@ -64,6 +64,17 @@ PlasmaCore.ToolTipArea {
     readonly property string appName: model.AppName
     readonly property string appId: model.AppId.replace(/\.desktop/, '')
     readonly property bool isIcon: tasksRoot.iconsOnly || model.IsLauncher
+    // Track window activation for color inheritance disambiguation.
+    // When a PID has multiple windows with different colors, the most
+    // recently active one is used to inherit from.
+    readonly property bool _trackActive: model.IsActive
+    on_TrackActiveChanged: {
+        if (_trackActive && model.IsWindow && !inPopup && completed) {
+            let winIds = model.WinIdList;
+            if (winIds && winIds.length > 0)
+                tasksRoot.recordWindowActivation(model.AppPid, String(winIds[0]));
+        }
+    }
     property bool toolTipOpen: false
     property bool inPopup: false
     property bool isWindow: model.IsWindow

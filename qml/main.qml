@@ -138,6 +138,14 @@ PlasmoidItem {
         onTriggered: tasks.enforceColorContiguity()
     }
 
+    // Track which window per PID was most recently focused. Used to
+    // disambiguate when a parent PID owns multiple windows with different
+    // colors (e.g. multiple Rider project windows sharing one JVM).
+    property var _lastActiveByPid: ({})
+    function recordWindowActivation(pid, winId) {
+        _lastActiveByPid[pid] = winId;
+    }
+
     // Deferred color inheritance: queue windows and process them on the
     // next event loop iteration, after all windows from the current batch
     // (e.g. session restore) have been added to the repeater. This ensures
@@ -181,51 +189,31 @@ PlasmoidItem {
     function processColorInheritance(winId, pid) {
         if (colorManager.getColor(winId)) return; // already colored
 
-        // Strategy 0: Same PID — inherit only if ALL same-PID siblings
-        // share one color. If any sibling is uncolored, the user chose
-        // not to color it, so new windows shouldn't auto-inherit.
-        let pidColor = 0;
-        let pidColorConsistent = true;
-        let hasSiblings = false;
-        for (let i = 0; i < taskRepeater.count; i++) {
-            let other = taskRepeater.itemAt(i);
-            if (!other || other.pid !== pid) continue;
-            let otherWinId = getWindowIdForTask(other);
-            if (otherWinId === winId) continue;
-            hasSiblings = true;
-            let c = colorManager.getColor(otherWinId);
-            if (c > 0) {
-                if (pidColor === 0) {
-                    pidColor = c;
-                } else if (pidColor !== c) {
-                    pidColorConsistent = false;
-                    break;
-                }
-            } else {
-                // Uncolored sibling exists — don't inherit.
-                pidColorConsistent = false;
-                break;
+        // Strategy 0: Same PID — if siblings exist, inherit their color.
+        // When all colored siblings agree, use that color directly.
+        // When they differ, use last-focused disambiguation.
+        {
+            let hasSiblings = false;
+            for (let i = 0; i < taskRepeater.count; i++) {
+                let other = taskRepeater.itemAt(i);
+                if (!other || other.pid !== pid) continue;
+                if (getWindowIdForTask(other) !== winId) { hasSiblings = true; break; }
             }
-        }
-        if (hasSiblings && pidColor > 0 && pidColorConsistent) {
-            colorManager.setColor(winId, pidColor);
-            return;
+            if (hasSiblings) {
+                let color = findColorFromPid(pid);
+                if (color > 0) {
+                    colorManager.setColor(winId, color);
+                    return;
+                }
+            }
         }
 
         // Strategy 1: cgroup-based launcher detection
         let launcherPids = backend.launcherPidsFromCgroup(pid);
         for (let p = 0; p < launcherPids.length && !colorManager.getColor(winId); p++) {
-            let lPid = launcherPids[p];
-            for (let i = 0; i < taskRepeater.count; i++) {
-                let other = taskRepeater.itemAt(i);
-                if (other && other.pid === lPid) {
-                    let otherWinId = getWindowIdForTask(other);
-                    let parentColor = colorManager.getColor(otherWinId);
-                    if (parentColor > 0) {
-                        colorManager.setColor(winId, parentColor);
-                        break;
-                    }
-                }
+            let color = findColorFromPid(launcherPids[p]);
+            if (color > 0) {
+                colorManager.setColor(winId, color);
             }
         }
 
@@ -235,20 +223,45 @@ PlasmoidItem {
             for (let depth = 0; depth < 5 && walkPid > 1; depth++) {
                 walkPid = backend.parentPid(walkPid);
                 if (walkPid <= 0) break;
-                for (let i = 0; i < taskRepeater.count; i++) {
-                    let other = taskRepeater.itemAt(i);
-                    if (other && other.pid === walkPid) {
-                        let otherWinId = getWindowIdForTask(other);
-                        let parentColor = colorManager.getColor(otherWinId);
-                        if (parentColor > 0) {
-                            colorManager.setColor(winId, parentColor);
-                            break;
-                        }
-                    }
+                let color = findColorFromPid(walkPid);
+                if (color > 0) {
+                    colorManager.setColor(winId, color);
+                    break;
                 }
-                if (colorManager.getColor(winId) > 0) break;
             }
         }
+    }
+
+    // Find the color to inherit from a parent PID. When the PID owns
+    // multiple windows with different colors, prefer the one that was
+    // most recently focused (the window the user was interacting with
+    // when they launched the child process).
+    function findColorFromPid(targetPid) {
+        let candidates = []; // {winId, color}
+        for (let i = 0; i < taskRepeater.count; i++) {
+            let other = taskRepeater.itemAt(i);
+            if (!other || other.pid !== targetPid) continue;
+            let otherWinId = getWindowIdForTask(other);
+            let c = colorManager.getColor(otherWinId);
+            if (c > 0) {
+                candidates.push({winId: otherWinId, color: c});
+            }
+        }
+        if (candidates.length === 0) return 0;
+
+        // All same color — no ambiguity.
+        if (candidates.every(c => c.color === candidates[0].color))
+            return candidates[0].color;
+
+        // Disambiguate: prefer the most recently active window for this PID.
+        let preferred = _lastActiveByPid[targetPid];
+        if (preferred) {
+            let match = candidates.find(c => c.winId === preferred);
+            if (match) return match.color;
+        }
+
+        // No activation history — don't guess.
+        return 0;
     }
 
     function getWindowIdForTask(task) {
