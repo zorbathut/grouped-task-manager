@@ -40,11 +40,15 @@ PlasmoidItem {
     // Color group system
     readonly property var colorGroupColors: [
         "#e74c3c", "#3498db", "#2ecc71", "#f1c40f",
-        "#e67e22", "#9b59b6", "#1abc9c", "#e91e63"
+        "#e67e22", "#9b59b6", "#1abc9c", "#e91e63",
+        "#795548", "#607d8b", "#8bc34a", "#00bcd4",
+        "#3f51b5", "#ff7043", "#9575cd", "#d4a574"
     ]
     readonly property var colorGroupNames: [
         "Red", "Blue", "Green", "Yellow",
-        "Orange", "Purple", "Teal", "Pink"
+        "Orange", "Purple", "Teal", "Pink",
+        "Brown", "Slate", "Lime", "Cyan",
+        "Indigo", "Coral", "Lavender", "Tan"
     ]
 
     // Custom category names
@@ -86,7 +90,7 @@ PlasmoidItem {
             if (eq > 0) {
                 let idx = parseInt(entries[i].substring(0, eq));
                 let name = entries[i].substring(eq + 1);
-                if (idx >= 1 && idx <= 8 && name.length > 0) {
+                if (idx >= 1 && idx <= colorGroupColors.length && name.length > 0) {
                     map[idx] = name;
                 }
             }
@@ -96,7 +100,7 @@ PlasmoidItem {
 
     function getColorGroupName(colorIndex) {
         if (_customNameMap[colorIndex]) return _customNameMap[colorIndex];
-        if (colorIndex >= 1 && colorIndex <= 8) return colorGroupNames[colorIndex - 1];
+        if (colorIndex >= 1 && colorIndex <= colorGroupColors.length) return colorGroupNames[colorIndex - 1];
         return "";
     }
 
@@ -916,7 +920,7 @@ PlasmoidItem {
 
                 Repeater {
                     id: headerRepeater
-                    model: 8
+                    model: tasks.colorGroupColors.length
 
                     delegate: GroupHeader {
                         tasksRoot: tasks

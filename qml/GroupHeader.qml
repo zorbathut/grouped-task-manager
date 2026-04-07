@@ -44,7 +44,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: header.colorIndex >= 1 && header.colorIndex <= 8
+        color: header.colorIndex >= 1 && header.colorIndex <= header.tasksRoot.colorGroupColors.length
             ? header.tasksRoot.colorGroupColors[header.colorIndex - 1]
             : "transparent"
         opacity: 0.15

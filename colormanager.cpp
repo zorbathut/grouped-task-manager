@@ -31,7 +31,7 @@ void ColorManager::setColorAssignments(const QStringList &assignments)
         if (sep > 0 && sep < entry.length() - 1) {
             bool ok = false;
             const int colorIndex = entry.mid(sep + 1).toInt(&ok);
-            if (ok && colorIndex >= 1 && colorIndex <= 8) {
+            if (ok && colorIndex >= 1 && colorIndex <= MaxColors) {
                 newColors.insert(entry.left(sep), colorIndex);
             }
         }
@@ -50,7 +50,7 @@ int ColorManager::getColor(const QString &windowId) const
 
 void ColorManager::setColor(const QString &windowId, int colorIndex)
 {
-    if (colorIndex < 1 || colorIndex > 8) {
+    if (colorIndex < 1 || colorIndex > MaxColors) {
         clearColor(windowId);
         return;
     }
@@ -88,6 +88,16 @@ void ColorManager::removeStale(const QStringList &activeWindowIds)
     if (changed) {
         Q_EMIT colorAssignmentsChanged();
     }
+}
+
+int ColorManager::colorWindowCount(int colorIndex) const
+{
+    int count = 0;
+    for (auto it = m_colors.constBegin(); it != m_colors.constEnd(); ++it) {
+        if (it.value() == colorIndex)
+            ++count;
+    }
+    return count;
 }
 
 #include "moc_colormanager.cpp"

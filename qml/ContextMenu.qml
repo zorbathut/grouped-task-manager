@@ -771,11 +771,15 @@ PlasmaExtras.Menu {
 
                 for (let i = 0; i < tasks.colorGroupColors.length; i++) {
                     let menuItem = menu.newMenuItem(colorGroupMenu);
-                    menuItem.text = tasks.getColorGroupName(i + 1);
-                    menuItem.checkable = true;
-                    menuItem.checked = (currentColor === i + 1);
-                    menuItem.icon = "edit-select";
                     const colorIndex = i + 1;
+                    let count = colorManager.colorWindowCount(colorIndex);
+                    let inUse = count > 0;
+                    menuItem.text = inUse
+                        ? tasks.getColorGroupName(colorIndex) + " (" + count + ")"
+                        : tasks.getColorGroupName(colorIndex);
+                    menuItem.checkable = true;
+                    menuItem.checked = (currentColor === colorIndex);
+                    menuItem.icon = inUse ? "edit-select" : "";
                     menuItem.clicked.connect(() => {
                         let wid = currentWindowId();
                         if (wid !== "") {
