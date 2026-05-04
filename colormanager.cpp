@@ -72,6 +72,14 @@ void ColorManager::clearColor(const QString &windowId)
 
 void ColorManager::removeStale(const QStringList &activeWindowIds)
 {
+    // Refuse to wipe everything based on an empty active set. The tasks model
+    // can be transiently empty during containment rebuilds (display hotplug,
+    // suspend/resume) — treating that as "no windows exist" would persist an
+    // empty config over the user's real assignments.
+    if (activeWindowIds.isEmpty()) {
+        return;
+    }
+
     const QSet<QString> activeSet(activeWindowIds.constBegin(), activeWindowIds.constEnd());
     bool changed = false;
 
