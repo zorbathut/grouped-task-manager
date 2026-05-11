@@ -21,7 +21,7 @@ namespace NotificationManager
 class Settings;
 }
 
-namespace SmartLauncher
+namespace GroupedSmartLauncher
 {
 struct Entry {
     int count = 0;
@@ -117,4 +117,4 @@ private:
     bool m_available = false;
 };
 
-} // namespace SmartLauncher
+} // namespace GroupedSmartLauncher

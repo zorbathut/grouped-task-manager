@@ -13,7 +13,7 @@
 
 #include "smartlauncherbackend.h"
 
-namespace SmartLauncher
+namespace GroupedSmartLauncher
 {
 
 class Item : public QObject
@@ -79,4 +79,4 @@ private:
     bool m_urgent = false;
 };
 
-} // namespace SmartLauncher
+} // namespace GroupedSmartLauncher

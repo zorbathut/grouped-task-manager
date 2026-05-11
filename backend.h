@@ -28,10 +28,10 @@ namespace KActivities
 class Consumer;
 }
 
-class Backend : public QObject
+class GroupedTaskManagerBackend : public QObject
 {
     Q_OBJECT
-    QML_ELEMENT
+    QML_NAMED_ELEMENT(Backend)
 
 public:
     enum MiddleClickAction {
@@ -45,8 +45,8 @@ public:
 
     Q_ENUM(MiddleClickAction)
 
-    explicit Backend(QObject *parent = nullptr);
-    ~Backend() override;
+    explicit GroupedTaskManagerBackend(QObject *parent = nullptr);
+    ~GroupedTaskManagerBackend() override;
 
     Q_INVOKABLE QVariantList jumpListActions(const QUrl &launcherUrl, QObject *parent);
     Q_INVOKABLE QVariantList placesActions(const QUrl &launcherUrl, bool showAllPlaces, QObject *parent);

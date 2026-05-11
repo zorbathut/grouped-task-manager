@@ -50,7 +50,7 @@ using namespace KAStats::Terms;
 
 static constexpr int NoApplications = 2; // kactivitymanager StatsPlugin WhatToRemember.
 
-Backend::Backend(QObject *parent)
+GroupedTaskManagerBackend::GroupedTaskManagerBackend(QObject *parent)
     : QObject(parent)
     , m_actionGroup(new QActionGroup(this))
     , m_activityManagerPluginsSettingsWatcher(KConfigWatcher::create(m_activityManagerPluginsSettings.sharedConfig()))
@@ -66,11 +66,11 @@ Backend::Backend(QObject *parent)
             });
 }
 
-Backend::~Backend()
+GroupedTaskManagerBackend::~GroupedTaskManagerBackend()
 {
 }
 
-QUrl Backend::tryDecodeApplicationsUrl(const QUrl &launcherUrl)
+QUrl GroupedTaskManagerBackend::tryDecodeApplicationsUrl(const QUrl &launcherUrl)
 {
     if (launcherUrl.isValid() && launcherUrl.scheme() == QLatin1String("applications")) {
         const KService::Ptr service = KService::serviceByMenuId(launcherUrl.path());
@@ -83,7 +83,7 @@ QUrl Backend::tryDecodeApplicationsUrl(const QUrl &launcherUrl)
     return launcherUrl;
 }
 
-QStringList Backend::applicationCategories(const QUrl &launcherUrl)
+QStringList GroupedTaskManagerBackend::applicationCategories(const QUrl &launcherUrl)
 {
     const QUrl desktopEntryUrl = tryDecodeApplicationsUrl(launcherUrl);
 
@@ -97,7 +97,7 @@ QStringList Backend::applicationCategories(const QUrl &launcherUrl)
     return desktopFile.desktopGroup().readXdgListEntry(QStringLiteral("Categories"));
 }
 
-QVariantList Backend::jumpListActions(const QUrl &launcherUrl, QObject *parent)
+QVariantList GroupedTaskManagerBackend::jumpListActions(const QUrl &launcherUrl, QObject *parent)
 {
     QVariantList actions;
 
@@ -151,7 +151,7 @@ QVariantList Backend::jumpListActions(const QUrl &launcherUrl, QObject *parent)
     return actions;
 }
 
-QVariantList Backend::systemSettingsActions(QObject *parent) const
+QVariantList GroupedTaskManagerBackend::systemSettingsActions(QObject *parent) const
 {
     QVariantList actions;
 
@@ -196,7 +196,7 @@ QVariantList Backend::systemSettingsActions(QObject *parent) const
     return actions;
 }
 
-QVariantList Backend::placesActions(const QUrl &launcherUrl, bool showAllPlaces, QObject *parent)
+QVariantList GroupedTaskManagerBackend::placesActions(const QUrl &launcherUrl, bool showAllPlaces, QObject *parent)
 {
     if (!parent) {
         return QVariantList();
@@ -288,14 +288,14 @@ QVariantList Backend::placesActions(const QUrl &launcherUrl, bool showAllPlaces,
         QAction *action = new QAction(parent);
         action->setIcon(QIcon::fromTheme(QStringLiteral("view-more-symbolic")));
         action->setText(i18ncp("Show all user Places", "%1 more Place…", "%1 more Places…", totalActionCount - actions.count()));
-        connect(action, &QAction::triggered, this, &Backend::showAllPlaces);
+        connect(action, &QAction::triggered, this, &GroupedTaskManagerBackend::showAllPlaces);
         actions << QVariant::fromValue(action);
     }
 
     return actions;
 }
 
-QVariantList Backend::recentDocumentActions(const QUrl &launcherUrl, QObject *parent)
+QVariantList GroupedTaskManagerBackend::recentDocumentActions(const QUrl &launcherUrl, QObject *parent)
 {
     QVariantList actions;
     if (!parent) {
@@ -361,7 +361,7 @@ QVariantList Backend::recentDocumentActions(const QUrl &launcherUrl, QObject *pa
         action->setProperty("entryPath", desktopEntryUrl);
         action->setProperty("mimeType", mimetype);
         action->setData(url);
-        connect(action, &QAction::triggered, this, &Backend::handleRecentDocumentAction);
+        connect(action, &QAction::triggered, this, &GroupedTaskManagerBackend::handleRecentDocumentAction);
 
         actions << QVariant::fromValue<QAction *>(action);
 
@@ -394,14 +394,14 @@ QVariantList Backend::recentDocumentActions(const QUrl &launcherUrl, QObject *pa
         }
         action->setIcon(QIcon::fromTheme(QStringLiteral("edit-clear-history")));
         action->setProperty("agent", storageId);
-        connect(action, &QAction::triggered, this, &Backend::handleRecentDocumentAction);
+        connect(action, &QAction::triggered, this, &GroupedTaskManagerBackend::handleRecentDocumentAction);
         actions << QVariant::fromValue<QAction *>(action);
     }
 
     return actions;
 }
 
-void Backend::handleRecentDocumentAction() const
+void GroupedTaskManagerBackend::handleRecentDocumentAction() const
 {
     const QAction *action = qobject_cast<QAction *>(sender());
 
@@ -457,14 +457,14 @@ void Backend::handleRecentDocumentAction() const
     job->start();
 }
 
-void Backend::setActionGroup(QAction *action) const
+void GroupedTaskManagerBackend::setActionGroup(QAction *action) const
 {
     if (action) {
         action->setActionGroup(m_actionGroup);
     }
 }
 
-QRect Backend::globalRect(QQuickItem *item) const
+QRect GroupedTaskManagerBackend::globalRect(QQuickItem *item) const
 {
     if (!item || !item->window()) {
         return QRect();
@@ -477,7 +477,7 @@ QRect Backend::globalRect(QQuickItem *item) const
     return iconRect;
 }
 
-bool Backend::isApplication(const QUrl &url) const
+bool GroupedTaskManagerBackend::isApplication(const QUrl &url) const
 {
     if (!url.isValid() || !url.isLocalFile()) {
         return false;
@@ -493,7 +493,7 @@ bool Backend::isApplication(const QUrl &url) const
     return desktopFile.hasApplicationType();
 }
 
-qint64 Backend::parentPid(qint64 pid) const
+qint64 GroupedTaskManagerBackend::parentPid(qint64 pid) const
 {
     KSysGuard::Processes procs;
     procs.updateOrAddProcess(pid);
@@ -520,7 +520,7 @@ qint64 Backend::parentPid(qint64 pid) const
     return -1;
 }
 
-QList<qint64> Backend::launcherPidsFromCgroup(qint64 pid) const
+QList<qint64> GroupedTaskManagerBackend::launcherPidsFromCgroup(qint64 pid) const
 {
     QList<qint64> result;
 
