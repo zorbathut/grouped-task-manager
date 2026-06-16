@@ -199,14 +199,18 @@ PlasmoidItem {
     }
 
     // Reset custom names for colors that no longer have any windows.
+    //
+    // Orphan detection is based on the authoritative color map
+    // (colorManager), NOT the live taskRepeater. The repeater is transiently
+    // empty or partially populated during startup, plasmashell crash
+    // recovery, display hotplug and suspend/resume; reading it then would
+    // treat not-yet-loaded windows as gone and permanently wipe their custom
+    // names from config. colorManager's map is loaded from config up front
+    // and only emptied by the guarded removeStale(), so it stays correct
+    // across those transients. (Mirrors the empty-set guard in removeStale.)
     function clearOrphanedColorNames() {
-        let activeColors = new Set();
-        for (let i = 0; i < taskRepeater.count; i++) {
-            let c = getColorForTaskIndex(i);
-            if (c > 0) activeColors.add(c);
-        }
         for (let colorIdx in _customNameMap) {
-            if (!activeColors.has(Number(colorIdx))) {
+            if (colorManager.colorWindowCount(Number(colorIdx)) === 0) {
                 setColorGroupName(Number(colorIdx), "");
             }
         }
