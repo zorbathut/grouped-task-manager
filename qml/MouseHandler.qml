@@ -15,7 +15,6 @@ DropArea {
     signal urlsDropped(var urls)
 
     property Item target
-    property Item ignoredItem
     property Item hoveredItem
     property bool isGroupDialog: false
     property bool moved: false
@@ -60,80 +59,99 @@ DropArea {
             return;
         }
 
-        // If we're mixing launcher tasks with other tasks and are moving
-        // a (small) launcher task across a non-launcher task, don't allow
-        // the latter to be the move target twice in a row for a while, as
-        // it will naturally be moved underneath the cursor as result of the
-        // initial move, due to being far larger than the launcher delegate.
-        // TODO: This restriction (minus the timer, which improves things)
-        // has been proven out in the EITM fork, but could be improved later
-        // by tracking the cursor movement vector and allowing the drag if
-        // the movement direction has reversed, establishing user intent to
-        // move back.
-        if (!Plasmoid.configuration.separateLaunchers
-                && tasks.dragSource?.model.IsLauncher
-                && !above.model.IsLauncher
-                && above === ignoredItem) {
+        if (tasksModel.sortMode !== TaskManager.TasksModel.SortManual || !tasks.dragSource) {
             return;
-        } else {
-            ignoredItem = null;
         }
 
-        if (tasksModel.sortMode === TaskManager.TasksModel.SortManual && tasks.dragSource) {
-            // Reject drags between different TaskList instances.
-            if (tasks.dragSource.parent !== above.parent) {
-                return;
-            }
+        // Reject drags between different TaskList instances.
+        if (tasks.dragSource.parent !== above.parent) {
+            return;
+        }
 
+        if (tasks.groupDialog) {
             const insertAt = above.index;
-
             if (tasks.dragSource !== above && tasks.dragSource.index !== insertAt) {
-                if (tasks.groupDialog) {
-                    tasksModel.move(tasks.dragSource.index, insertAt,
-                        tasksModel.makeModelIndex(tasks.groupDialog.visualParent.index));
-                } else {
-                    // Color group-aware drag logic
-                    const dragWinId = tasks.getWindowIdForTask(tasks.dragSource);
-                    const dragColor = dragWinId !== "" ? colorManager.getColor(dragWinId) : 0;
-
-                    if (dragColor > 0) {
-                        const bounds = tasks.findColorGroupBounds(dragColor);
-                        const insideGroup = (insertAt >= bounds.first && insertAt <= bounds.last);
-
-                        if (insideGroup) {
-                            // Normal single-item move within the color group
-                            tasksModel.move(tasks.dragSource.index, insertAt);
-                        } else {
-                            // Move the group by 1 position toward the cursor by
-                            // moving the adjacent non-group item across the group.
-                            // This is O(1) per event and prevents oscillation
-                            // (unlike moving all N group members at once).
-                            if (insertAt < bounds.first && bounds.first > 0) {
-                                tasksModel.move(bounds.first - 1, bounds.last);
-                            } else if (insertAt > bounds.last && bounds.last < taskRepeater.count - 1) {
-                                tasksModel.move(bounds.last + 1, bounds.first);
-                            }
-                        }
-                    } else {
-                        // Uncolored task: allow drag anywhere freely.
-                        // Contiguity enforcement will clean up after
-                        // the drag ends.
-                        tasksModel.move(tasks.dragSource.index, insertAt);
-                    }
-                }
-
-                tasks._recomputeRowLayout();
-
-                ignoredItem = above;
-                ignoreItemTimer.restart();
-
-                // Color group moves advance 1 position per step. If the
-                // source hasn't reached the cursor yet, keep going next
-                // frame so the group catches up smoothly.
-                if (tasks.dragSource !== above && tasks.dragSource.index !== insertAt) {
-                    dragCoalesceTimer.restart();
-                }
+                tasksModel.move(tasks.dragSource.index, insertAt,
+                    tasksModel.makeModelIndex(tasks.groupDialog.visualParent.index));
             }
+            return;
+        }
+
+        // Block-based reordering: both the dragged selection (its whole
+        // color group, or just itself when uncolored) and the hovered
+        // target (likewise) are treated as atomic blocks. The dragged
+        // block hops to the far side of the hovered block only once the
+        // cursor crosses the hovered block's pixel midpoint. That rule is
+        // self-stabilizing: right after a hop the cursor is still past
+        // the midpoint, so the reverse hop can't trigger — this also
+        // covers the small-launcher-over-wide-task oscillation the old
+        // ignoredItem timer worked around. Groups stay contiguous for the
+        // entire drag, so no post-drop snap-back correction is needed.
+        const dragWinId = tasks.getWindowIdForTask(tasks.dragSource);
+        const dragColor = dragWinId !== "" ? colorManager.getColor(dragWinId) : 0;
+        const dragBlock = dragColor > 0
+            ? tasks.findColorGroupBounds(dragColor)
+            : { first: tasks.dragSource.index, last: tasks.dragSource.index };
+
+        // Within the dragged block itself: plain single-item rearrange.
+        if (above.index >= dragBlock.first && above.index <= dragBlock.last) {
+            if (tasks.dragSource !== above && tasks.dragSource.index !== above.index) {
+                tasksModel.move(tasks.dragSource.index, above.index);
+                tasks._recomputeRowLayout();
+            }
+            return;
+        }
+
+        const aboveWinId = tasks.getWindowIdForTask(above);
+        const aboveColor = aboveWinId !== "" ? colorManager.getColor(aboveWinId) : 0;
+        const hoverBlock = aboveColor > 0
+            ? tasks.findColorGroupBounds(aboveColor)
+            : { first: above.index, last: above.index };
+
+        // Pixel extents of a block along the panel's flow axis, in the
+        // same coordinate space childAt() was queried in.
+        function blockSpan(first, last) {
+            let lo = Infinity, hi = -Infinity;
+            for (let i = first; i <= last; i++) {
+                const item = taskRepeater.itemAt(i);
+                if (!item) continue;
+                const p0 = tasks.vertical ? item.y : item.x;
+                const p1 = p0 + (tasks.vertical ? item.height : item.width);
+                lo = Math.min(lo, p0);
+                hi = Math.max(hi, p1);
+            }
+            return { lo: lo, hi: hi };
+        }
+
+        const hoverSpan = blockSpan(hoverBlock.first, hoverBlock.last);
+        const dragSpan = blockSpan(dragBlock.first, dragBlock.last);
+        if (!isFinite(hoverSpan.lo) || !isFinite(dragSpan.lo)) {
+            return;
+        }
+
+        const hoverMid = (hoverSpan.lo + hoverSpan.hi) / 2;
+        const dragCenter = (dragSpan.lo + dragSpan.hi) / 2;
+        const cursorPos = tasks.vertical ? y : x;
+
+        // Crossed: the cursor and the dragged block sit on opposite sides
+        // of the hovered block's midpoint, so the dragged block goes to
+        // the far side. Otherwise it goes to the near side — which skips
+        // over any items lying between the two blocks, and is a no-op
+        // when they're already adjacent. Geometry-based sign comparison
+        // keeps this correct under RTL mirroring and reverse mode.
+        const crossed = (cursorPos - hoverMid) * (dragCenter - hoverMid) < 0;
+
+        const dragLen = dragBlock.last - dragBlock.first + 1;
+        let blockStart;
+        if (hoverBlock.first > dragBlock.last) {
+            blockStart = crossed ? hoverBlock.last + 1 - dragLen : hoverBlock.first - dragLen;
+        } else {
+            blockStart = crossed ? hoverBlock.first : hoverBlock.last + 1;
+        }
+
+        if (blockStart !== dragBlock.first) {
+            tasks.moveBlock(dragBlock.first, dragBlock.last, blockStart);
+            tasks._recomputeRowLayout();
         }
     }
 
@@ -207,28 +225,6 @@ DropArea {
         if (event.hasUrls) {
             urlsDropped(event.urls);
             return;
-        }
-    }
-
-    Connections {
-        target: tasks
-
-        function onDragSourceChanged(): void {
-            if (!dragSource) {
-                dropArea.ignoredItem = null;
-                ignoreItemTimer.stop();
-            }
-        }
-    }
-
-    Timer {
-        id: ignoreItemTimer
-
-        repeat: false
-        interval: 750
-
-        onTriggered: {
-            dropArea.ignoredItem = null;
         }
     }
 

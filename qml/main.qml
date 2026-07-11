@@ -393,39 +393,23 @@ PlasmoidItem {
         return { first: first, last: last };
     }
 
-    function moveColorGroup(color, draggedIndex, targetIndex) {
-        // Collect all indices of tasks with this color, in order
-        let groupIndices = [];
-        for (let i = 0; i < taskRepeater.count; i++) {
-            if (getColorForTaskIndex(i) === color) {
-                groupIndices.push(i);
-            }
-        }
-        if (groupIndices.length === 0) return;
+    // Move the contiguous block [first..last] so it starts at blockStart.
+    function moveBlock(first, last, blockStart) {
+        const len = last - first + 1;
+        blockStart = Math.max(0, Math.min(blockStart, taskRepeater.count - len));
+        if (blockStart === first) return;
 
-        // Find position of dragged item within the group
-        let dragPosInGroup = groupIndices.indexOf(draggedIndex);
-        if (dragPosInGroup === -1) return;
-
-        // Calculate where the group should start so the dragged item
-        // ends up at or near targetIndex
-        let groupStart = targetIndex - dragPosInGroup;
-        groupStart = Math.max(0, Math.min(groupStart, taskRepeater.count - groupIndices.length));
-
-        let originalFirst = groupIndices[0];
-        if (groupStart === originalFirst) return; // already in place
-
-        // The group is contiguous (enforced by enforceColorContiguity),
-        // so after each move we know exactly where members are without
-        // rescanning. Moving left: items above source don't shift.
-        // Moving right: items below source don't shift.
-        if (groupStart < originalFirst) {
-            for (let j = 0; j < groupIndices.length; j++) {
-                tasksModel.move(originalFirst + j, groupStart + j);
+        // The block is contiguous, so after each move we know exactly
+        // where members are without rescanning. Moving left: items above
+        // the source don't shift. Moving right: items below the source
+        // don't shift.
+        if (blockStart < first) {
+            for (let j = 0; j < len; j++) {
+                tasksModel.move(first + j, blockStart + j);
             }
         } else {
-            for (let j = groupIndices.length - 1; j >= 0; j--) {
-                tasksModel.move(originalFirst + j, groupStart + j);
+            for (let j = len - 1; j >= 0; j--) {
+                tasksModel.move(first + j, blockStart + j);
             }
         }
         colorAssignmentGeneration++;
