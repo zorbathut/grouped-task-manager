@@ -263,7 +263,7 @@ PlasmoidItem {
         // Strategy 1: cgroup-based launcher detection
         let launcherPids = backend.launcherPidsFromCgroup(pid);
         for (let p = 0; p < launcherPids.length && !colorManager.getColor(winId); p++) {
-            let color = findColorFromPid(launcherPids[p]);
+            let color = findColorFromPid(launcherPids[p], pid);
             if (color > 0) {
                 colorManager.setColor(winId, color);
             }
@@ -275,7 +275,7 @@ PlasmoidItem {
             for (let depth = 0; depth < 5 && walkPid > 1; depth++) {
                 walkPid = backend.parentPid(walkPid);
                 if (walkPid <= 0) break;
-                let color = findColorFromPid(walkPid);
+                let color = findColorFromPid(walkPid, pid);
                 if (color > 0) {
                     colorManager.setColor(winId, color);
                     break;
@@ -284,19 +284,115 @@ PlasmoidItem {
         }
     }
 
+    // Parse a window title into weak-match tokens and an optional explicit
+    // project path. JetBrains IDEs append a bracketed path to disambiguate
+    // same-named projects ("planefarer [~/werk/planefarer5] – Credits.cs");
+    // only accept brackets that look like paths so "[modified]" etc. are
+    // treated as ordinary text.
+    function _titleProjectHints(title) {
+        let bracketPath = "";
+        let m = title.match(/\[([~/][^\]]*)\]/);
+        if (m) {
+            bracketPath = m[1];
+            title = title.replace(m[0], " ");
+        }
+        // Split on whitespace and colons only: hyphens and dots are common
+        // inside project names ("bcachefs-tools", "MyApp.Web").
+        let tokens = title.split(/[\s:]+/).filter(t => t.length >= 2);
+        return { bracketPath: bracketPath, tokens: tokens };
+    }
+
+    function _pathComponents(path) {
+        if (path.startsWith("~")) {
+            path = backend.homePath() + path.substring(1);
+        }
+        return path.split("/").filter(c => c.length > 0);
+    }
+
+    // The filesystem footprint of a process, as component arrays: cwd, exe,
+    // and any absolute paths on its command line.
+    function _processPaths(pid) {
+        let paths = [];
+        let cwd = backend.processCwd(pid);
+        if (cwd) paths.push(cwd);
+        let exe = backend.processExe(pid);
+        if (exe) paths.push(exe);
+        let args = backend.processCmdline(pid);
+        for (let a of args) {
+            if (a.startsWith("/") || a.startsWith("~")) paths.push(a);
+        }
+        return paths.map(p => _pathComponents(p));
+    }
+
+    // Decide which of an ambiguous parent's windows a new child window
+    // belongs to, by matching the child process's filesystem footprint
+    // against the candidates' window titles. Returns the matched candidate
+    // ({winId, color, title}) or null.
+    //
+    // Strong match: a bracketed project path in the title is a
+    // component-wise prefix of one of the child's paths (component-wise so
+    // ~/werk/planefarer doesn't claim children of ~/werk/planefarer5).
+    // Weak match: a title token equals a path component, case-insensitively;
+    // deeper components outrank shallow ones so "planefarer5" beats "zorba"
+    // for /home/zorba/werk/planefarer5. A candidate whose bracketed path
+    // matches nothing is contradicted — it identified its project and the
+    // child isn't from it — and is excluded from weak matching. Only a
+    // unique best match wins; on a tie the caller falls back to focus-based
+    // disambiguation.
+    function _matchCandidateByProjectPath(childPid, candidates) {
+        let childPaths = _processPaths(childPid);
+        if (childPaths.length === 0) return null;
+
+        let strong = []; // {cand, depth}
+        let weak = [];   // {cand, depth}
+        for (let cand of candidates) {
+            let hints = _titleProjectHints(cand.title);
+            if (hints.bracketPath) {
+                let bc = _pathComponents(hints.bracketPath);
+                let matched = childPaths.some(pc =>
+                    bc.length <= pc.length && bc.every((c, i) => c === pc[i]));
+                if (matched) {
+                    strong.push({ cand: cand, depth: bc.length });
+                }
+                continue;
+            }
+            let depth = -1;
+            for (let tok of hints.tokens) {
+                let tl = tok.toLowerCase();
+                for (let pc of childPaths) {
+                    for (let i = pc.length - 1; i > depth; i--) {
+                        if (pc[i].toLowerCase() === tl) {
+                            depth = i;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (depth >= 0) weak.push({ cand: cand, depth: depth });
+        }
+
+        let pool = strong.length > 0 ? strong : weak;
+        if (pool.length === 0) return null;
+        let best = pool.reduce((a, e) => Math.max(a, e.depth), -1);
+        let winners = pool.filter(e => e.depth === best);
+        return winners.length === 1 ? winners[0].cand : null;
+    }
+
     // Find the color to inherit from a parent PID. When the PID owns
-    // multiple windows with different colors, prefer the one that was
-    // most recently focused (the window the user was interacting with
-    // when they launched the child process).
-    function findColorFromPid(targetPid) {
-        let candidates = []; // {winId, color}
+    // multiple windows with different colors, first try to match the child
+    // process's filesystem footprint against the candidates' window titles
+    // (robust when the child appears long after the launching window lost
+    // focus, e.g. a Rider run configuration that builds for a minute);
+    // failing that, prefer the most recently focused window.
+    function findColorFromPid(targetPid, childPid) {
+        let candidates = []; // {winId, color, title}
         for (let i = 0; i < taskRepeater.count; i++) {
             let other = taskRepeater.itemAt(i);
             if (!other || other.pid !== targetPid) continue;
             let otherWinId = getWindowIdForTask(other);
             let c = colorManager.getColor(otherWinId);
             if (c > 0) {
-                candidates.push({winId: otherWinId, color: c});
+                candidates.push({winId: otherWinId, color: c, title: other.model && other.model.display ? String(other.model.display) : ""});
             }
         }
         if (candidates.length === 0) return 0;
@@ -304,6 +400,14 @@ PlasmoidItem {
         // All same color — no ambiguity.
         if (candidates.every(c => c.color === candidates[0].color))
             return candidates[0].color;
+
+        // Project-path matching. Only meaningful when the child is a
+        // separate process: for same-PID siblings the footprint under
+        // inspection would be the parent's own.
+        if (childPid && childPid !== targetPid) {
+            let match = _matchCandidateByProjectPath(childPid, candidates);
+            if (match) return match.color;
+        }
 
         // Disambiguate: prefer the window that was stably focused before
         // any rapid focus bouncing (e.g. Konsole tab creation).

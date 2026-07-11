@@ -59,6 +59,10 @@ public:
 
     Q_INVOKABLE qint64 parentPid(qint64 pid) const;
     Q_INVOKABLE QList<qint64> launcherPidsFromCgroup(qint64 pid) const;
+    Q_INVOKABLE QString processCwd(qint64 pid) const;
+    Q_INVOKABLE QString processExe(qint64 pid) const;
+    Q_INVOKABLE QStringList processCmdline(qint64 pid) const;
+    Q_INVOKABLE QString homePath() const;
 
     Q_INVOKABLE static QUrl tryDecodeApplicationsUrl(const QUrl &launcherUrl);
     Q_INVOKABLE static QStringList applicationCategories(const QUrl &launcherUrl);

@@ -25,6 +25,7 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QMenu>
@@ -552,6 +553,40 @@ QList<qint64> GroupedTaskManagerBackend::launcherPidsFromCgroup(qint64 pid) cons
     }
 
     return result;
+}
+
+QString GroupedTaskManagerBackend::processCwd(qint64 pid) const
+{
+    return QFile::symLinkTarget(QStringLiteral("/proc/%1/cwd").arg(pid));
+}
+
+QString GroupedTaskManagerBackend::processExe(qint64 pid) const
+{
+    return QFile::symLinkTarget(QStringLiteral("/proc/%1/exe").arg(pid));
+}
+
+QStringList GroupedTaskManagerBackend::processCmdline(qint64 pid) const
+{
+    QStringList result;
+
+    QFile cmdlineFile(QStringLiteral("/proc/%1/cmdline").arg(pid));
+    if (!cmdlineFile.open(QIODevice::ReadOnly)) {
+        return result;
+    }
+
+    const QList<QByteArray> parts = cmdlineFile.readAll().split('\0');
+    for (const QByteArray &part : parts) {
+        if (!part.isEmpty()) {
+            result.append(QString::fromLocal8Bit(part));
+        }
+    }
+
+    return result;
+}
+
+QString GroupedTaskManagerBackend::homePath() const
+{
+    return QDir::homePath();
 }
 
 #include "moc_backend.cpp"
