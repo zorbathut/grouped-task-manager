@@ -162,6 +162,10 @@
       <label>Custom names for color groups. Each entry is colorIndex=name (1-16).</label>
       <default></default>
     </entry>
+    <entry name="taskOrder" type="StringList">
+      <label>Manual task order, as a list of window ids. Restored on startup.</label>
+      <default></default>
+    </entry>
   </group>
 
 </kcfg>

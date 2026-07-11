@@ -48,5 +48,5 @@ When the found ancestor owns multiple windows with *different* colors (e.g. one 
 **Activation Tracking** — Records most recent active window per PID with a 150ms settlement timer to filter rapid focus bouncing (e.g., Konsole tab creation). Used to disambiguate multi-window processes with different colors.
 
 ### Configuration
-- **main.xml** — KConfig schema for all settings. Color assignments stored as StringLists (`"windowId=colorIndex"`). Custom group names stored similarly.
+- **main.xml** — KConfig schema for all settings. Color assignments stored as StringLists (`"windowId=colorIndex"`). Custom group names stored similarly. Manual task order stored as a StringList of window ids (`taskOrder`), restored on startup by `applySavedTaskOrder()` in main.qml.
 - **metadata.json** — Plasma applet metadata, plugin ID: `org.kde.plasma.groupedtaskmanager`.

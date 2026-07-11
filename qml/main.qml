@@ -143,6 +143,18 @@ PlasmoidItem {
         onTriggered: tasks.enforceColorContiguity()
     }
 
+    // Persisted manual task order, keyed by window id like the color
+    // assignments. As windows (re)appear after a plasmashell restart they
+    // are moved back to their saved relative positions; user reorders
+    // overwrite the saved list via saveTaskOrder().
+    property var _desiredOrder: []
+
+    Timer {
+        id: restoreOrderTimer
+        interval: 0
+        onTriggered: tasks.applySavedTaskOrder()
+    }
+
     // Track which window per PID was most recently focused. Used to
     // disambiguate when a parent PID owns multiple windows with different
     // colors (e.g. multiple Rider project windows sharing one JVM).
@@ -188,6 +200,15 @@ PlasmoidItem {
                 if (wid !== "") activeIds.push(wid);
             }
             colorManager.removeStale(activeIds);
+            if (activeIds.length > 0) {
+                let activeSet = {};
+                for (let id of activeIds) activeSet[id] = true;
+                let pruned = tasks._desiredOrder.filter(id => activeSet[id]);
+                if (pruned.length !== tasks._desiredOrder.length) {
+                    tasks._desiredOrder = pruned;
+                    Plasmoid.configuration.taskOrder = pruned;
+                }
+            }
             tasks.clearOrphanedColorNames();
         }
     }
@@ -232,9 +253,11 @@ PlasmoidItem {
                 processColorInheritance(item.winId, item.pid);
             }
         }
-        // Ensure colored tasks are grouped contiguously after the
-        // initial batch is processed (covers both inherited colors
-        // and colors loaded from config).
+        // Restore saved positions first, then ensure colored tasks are
+        // grouped contiguously (covers both inherited colors and colors
+        // loaded from config). restoreOrderTimer fires at interval 0,
+        // before the 50ms contiguity pass.
+        restoreOrderTimer.restart();
         enforceContiguityTimer.restart();
     }
 
@@ -435,6 +458,102 @@ PlasmoidItem {
         return colorManager.getColor(getWindowIdForTask(task));
     }
 
+    // Move windows that appear in the saved order back to their saved
+    // relative positions. Windows not in the saved list (newly opened)
+    // keep their current slots; contiguity enforcement and the next
+    // saveTaskOrder() pick them up from there. Runs on every insert, but
+    // in steady state the model already matches the saved order and this
+    // is a no-op.
+    function applySavedTaskOrder() {
+        if (tasksModel.sortMode !== TaskManager.TasksModel.SortManual) return;
+        if (dragSource) return;
+        if (_desiredOrder.length === 0) return;
+
+        let rank = {};
+        for (let i = 0; i < _desiredOrder.length; i++) {
+            rank[_desiredOrder[i]] = i;
+        }
+
+        // Snapshot the window id of every row ("" for launchers/startups,
+        // which never move).
+        let sim = [];
+        for (let i = 0; i < taskRepeater.count; i++) {
+            sim.push(getWindowIdForTask(taskRepeater.itemAt(i)));
+        }
+
+        // Desired sequence for the window rows: saved ids in saved order,
+        // unknown ids keeping their current slots.
+        let present = sim.filter(id => id !== "");
+        let known = present.filter(id => rank[id] !== undefined)
+                           .sort((a, b) => rank[a] - rank[b]);
+        let k = 0;
+        let desired = present.map(id => rank[id] !== undefined ? known[k++] : id);
+
+        let moved = false;
+        for (let slot = 0; slot < desired.length; slot++) {
+            // Recompute window-row indices each pass; moves shift rows.
+            let rows = [];
+            for (let i = 0; i < sim.length; i++) {
+                if (sim[i] !== "") rows.push(i);
+            }
+            if (sim[rows[slot]] === desired[slot]) continue;
+            let from = -1;
+            for (let j = slot + 1; j < rows.length; j++) {
+                if (sim[rows[j]] === desired[slot]) { from = rows[j]; break; }
+            }
+            if (from === -1) continue;
+            tasksModel.move(from, rows[slot]);
+            sim.splice(rows[slot], 0, sim.splice(from, 1)[0]);
+            moved = true;
+        }
+        if (moved) {
+            colorAssignmentGeneration++;
+        }
+    }
+
+    // Snapshot the current order into config. Saved ids whose windows
+    // aren't in the model yet (session restore arrives in batches) are
+    // preserved, anchored after their nearest preceding still-present id,
+    // so an early save doesn't discard the positions of windows that
+    // haven't loaded. Closed windows are pruned in staleCleanupTimer,
+    // mirroring colorManager.removeStale.
+    function saveTaskOrder() {
+        if (tasksModel.sortMode !== TaskManager.TasksModel.SortManual) return;
+        if (dragSource) return;
+
+        let current = [];
+        for (let i = 0; i < taskRepeater.count; i++) {
+            let wid = getWindowIdForTask(taskRepeater.itemAt(i));
+            if (wid !== "") current.push(wid);
+        }
+        // Same guard as removeStale: the model is transiently empty during
+        // containment rebuilds; don't persist that over the real order.
+        if (current.length === 0) return;
+
+        let currentSet = {};
+        for (let id of current) currentSet[id] = true;
+
+        let front = [];
+        let anchored = {}; // present id -> [missing ids that followed it]
+        let lastPresent = null;
+        for (let id of _desiredOrder) {
+            if (currentSet[id]) {
+                lastPresent = id;
+            } else if (lastPresent === null) {
+                front.push(id);
+            } else {
+                (anchored[lastPresent] = anchored[lastPresent] || []).push(id);
+            }
+        }
+        let merged = front;
+        for (let id of current) {
+            merged.push(id);
+            if (anchored[id]) merged = merged.concat(anchored[id]);
+        }
+        _desiredOrder = merged;
+        Plasmoid.configuration.taskOrder = merged;
+    }
+
     function enforceColorContiguity() {
         if (_enforcing) return;
         if (tasksModel.sortMode !== TaskManager.TasksModel.SortManual) return;
@@ -483,6 +602,7 @@ PlasmoidItem {
 
         colorAssignmentGeneration++;
         _enforcing = false;
+        saveTaskOrder();
     }
 
     function findColorGroupBounds(color) {
@@ -827,6 +947,7 @@ PlasmoidItem {
             target: tasksModel
 
             function onRowsInserted(): void {
+                restoreOrderTimer.restart();
                 enforceContiguityTimer.restart();
             }
             function onRowsRemoved(): void {
@@ -1075,6 +1196,12 @@ PlasmoidItem {
         TaskManagerApplet.TaskTools.taskManagerInstanceCount += 1;
         requestLayout.connect(iconGeometryTimer.restart);
         _parseCustomNames();
+        let saved = [];
+        let cfg = Plasmoid.configuration.taskOrder;
+        for (let i = 0; i < cfg.length; i++) {
+            saved.push(String(cfg[i]));
+        }
+        _desiredOrder = saved;
         _recomputeRowLayout();
     }
 
