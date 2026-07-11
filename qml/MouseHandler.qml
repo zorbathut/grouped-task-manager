@@ -35,6 +35,16 @@ DropArea {
     }
 
     function _processDragMove(x, y) {
+        // Never reorder while items are animating to new positions:
+        // childAt() hit-tests items at their transient animated spots,
+        // which yields bogus targets and oscillating moves. Retry once
+        // the layout has settled. (onPositionChanged has this guard for
+        // direct events; the coalescing timer must apply it too.)
+        if (target.animating) {
+            dragCoalesceTimer.restart();
+            return;
+        }
+
         let above;
         if (isGroupDialog) {
             above = target.itemAt(x, y);
@@ -42,7 +52,11 @@ DropArea {
             above = target.childAt(x, y);
         }
 
-        if (!above) {
+        // Only Task delegates are valid drop targets. GroupHeader rows
+        // share the same GridLayout, and their .index is a color palette
+        // index (0-15), not a model row — using it as a move target
+        // teleports the dragged task.
+        if (!above || !(above instanceof Task)) {
             return;
         }
 
@@ -134,16 +148,19 @@ DropArea {
     }
 
     onPositionChanged: event => {
-        if (target.animating) {
-            return;
-        }
-
         // For drag moves, coalesce events: only process the most recent
         // position on the next event loop pass, skipping intermediate ones.
+        // Always record the position, even mid-animation — _processDragMove
+        // defers until the layout settles, and dropping the event here
+        // would lose the cursor's final resting position.
         if (tasksModel.sortMode === TaskManager.TasksModel.SortManual && tasks.dragSource) {
             _pendingDragX = event.x;
             _pendingDragY = event.y;
             dragCoalesceTimer.restart();
+            return;
+        }
+
+        if (target.animating) {
             return;
         }
 
@@ -155,7 +172,9 @@ DropArea {
             above = target.childAt(event.x, event.y);
         }
 
-        if (!above) {
+        // GroupHeader rows are not hoverable tasks (activationTimer and
+        // urlsDropped both assume hoveredItem is a Task).
+        if (!above || !(above instanceof Task)) {
             hoveredItem = null;
             activationTimer.stop();
             return;

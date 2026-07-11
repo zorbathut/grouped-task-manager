@@ -338,50 +338,43 @@ PlasmoidItem {
 
         _enforcing = true;
 
-        // Build a map of which indices have which colors
-        let count = taskRepeater.count;
-        // For each color, find all task indices that have it
-        let colorGroups = {}; // colorIndex -> [taskIndices]
-        for (let i = 0; i < count; i++) {
-            let c = getColorForTaskIndex(i);
-            if (c > 0) {
-                if (!colorGroups[c]) colorGroups[c] = [];
-                colorGroups[c].push(i);
-            }
+        // Snapshot the color of every task index, then compute ALL the
+        // moves needed for contiguity by simulating them on the snapshot,
+        // applying each to the model as we go. Doing the whole fix-up in
+        // one pass (instead of one move per 50ms timer restart) means a
+        // fragmented group settles in a single simultaneous animation
+        // rather than a visible cascade of stray jumps.
+        let colors = [];
+        for (let i = 0; i < taskRepeater.count; i++) {
+            colors.push(getColorForTaskIndex(i));
         }
 
-        // For each color group, check if indices are contiguous.
-        // If not, move stray members to be adjacent to the first member.
-        let moved = false;
-        for (let color in colorGroups) {
-            let indices = colorGroups[color];
-            if (indices.length <= 1) continue;
-
-            // Check contiguity: all indices should be consecutive
-            let isContiguous = true;
-            for (let j = 1; j < indices.length; j++) {
-                if (indices[j] !== indices[j-1] + 1) {
-                    isContiguous = false;
-                    break;
+        let guard = colors.length * colors.length + 8;
+        while (guard-- > 0) {
+            // Find the first color group with a non-contiguous member.
+            let firstSeen = {};  // color -> index of first member
+            let move = null;     // {from, to}
+            for (let i = 0; i < colors.length && !move; i++) {
+                let c = colors[i];
+                if (c <= 0) continue;
+                if (firstSeen[c] === undefined) {
+                    firstSeen[c] = i;
+                    continue;
+                }
+                // Count members already placed contiguously after the anchor
+                let anchor = firstSeen[c];
+                let placed = 0;
+                while (anchor + placed + 1 < colors.length && colors[anchor + placed + 1] === c) {
+                    placed++;
+                }
+                if (i > anchor + placed + 1) {
+                    move = { from: i, to: anchor + placed + 1 };
                 }
             }
+            if (!move) break;
 
-            if (!isContiguous) {
-                // Move all members to be after the first member's position
-                let anchor = indices[0];
-                for (let j = 1; j < indices.length; j++) {
-                    let currentIdx = indices[j];
-                    let targetIdx = anchor + j;
-                    if (currentIdx !== targetIdx) {
-                        tasksModel.move(currentIdx, targetIdx);
-                        moved = true;
-                        // After a move, indices shift — restart the whole check
-                        _enforcing = false;
-                        enforceContiguityTimer.restart();
-                        return;
-                    }
-                }
-            }
+            tasksModel.move(move.from, move.to);
+            colors.splice(move.to, 0, colors.splice(move.from, 1)[0]);
         }
 
         colorAssignmentGeneration++;

@@ -151,7 +151,9 @@ PlasmaCore.ToolTipArea {
                 from: moveAnim.x
                 to: 0
                 easing.type: Easing.OutQuad
-                duration: Kirigami.Units.longDuration
+                // Drag reordering waits for animations to settle before the
+                // next move, so a long duration makes dragging feel laggy.
+                duration: task.tasksRoot.dragSource ? Kirigami.Units.veryShortDuration : Kirigami.Units.longDuration
             }
             NumberAnimation {
                 target: translateTransform
@@ -159,7 +161,7 @@ PlasmaCore.ToolTipArea {
                 from: moveAnim.y
                 to: 0
                 easing.type: Easing.OutQuad
-                duration: Kirigami.Units.longDuration
+                duration: task.tasksRoot.dragSource ? Kirigami.Units.veryShortDuration : Kirigami.Units.longDuration
             }
         }
     }
