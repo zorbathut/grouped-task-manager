@@ -186,24 +186,23 @@ PlasmoidItem {
         onTriggered: tasks.processPendingInheritance()
     }
 
-    // Deferred stale cleanup: must run after the Repeater has finished
-    // processing the row removal, otherwise model data objects still
-    // have pre-removal indices and colorAssignmentsChanged handlers
-    // read WinIdList from the wrong row.
+    // Deferred stale cleanup, batching bursts of window closures.
+    //
+    // The existence check runs against allWindowsModel, NOT the visible
+    // tasksModel/repeater: the visible model drops windows that are merely
+    // filtered out (other virtual desktops, screens, activities), and
+    // treating those as closed would wipe their color assignments, saved
+    // order, and custom group names on every desktop switch.
     Timer {
         id: staleCleanupTimer
         interval: 0
         onTriggered: {
-            let activeIds = [];
-            for (let i = 0; i < taskRepeater.count; i++) {
-                let wid = tasks.getWindowIdForTask(taskRepeater.itemAt(i));
-                if (wid !== "") activeIds.push(wid);
-            }
-            colorManager.removeStale(activeIds);
-            if (activeIds.length > 0) {
-                let activeSet = {};
-                for (let id of activeIds) activeSet[id] = true;
-                let pruned = tasks._desiredOrder.filter(id => activeSet[id]);
+            let existingIds = tasks.allExistingWindowIds();
+            colorManager.removeStale(existingIds);
+            if (existingIds.length > 0) {
+                let existingSet = {};
+                for (let id of existingIds) existingSet[id] = true;
+                let pruned = tasks._desiredOrder.filter(id => existingSet[id]);
                 if (pruned.length !== tasks._desiredOrder.length) {
                     tasks._desiredOrder = pruned;
                     Plasmoid.configuration.taskOrder = pruned;
@@ -211,6 +210,21 @@ PlasmoidItem {
             }
             tasks.clearOrphanedColorNames();
         }
+    }
+
+    // Every window id known to allWindowsModel — the set of windows that
+    // actually exist, regardless of desktop/screen/activity filtering.
+    function allExistingWindowIds() {
+        let ids = [];
+        for (let i = 0; i < allWindowsModel.count; i++) {
+            let winIds = allWindowsModel.data(allWindowsModel.index(i, 0),
+                                              TaskManager.AbstractTasksModel.WinIdList);
+            if (!winIds) continue;
+            for (let w = 0; w < winIds.length; w++) {
+                ids.push(String(winIds[w]));
+            }
+        }
+        return ids;
     }
 
     Timer {
@@ -837,6 +851,23 @@ PlasmoidItem {
         }
     }
 
+    // Unfiltered shadow model: the authority on which windows actually
+    // exist. tasksModel above filters by desktop/screen/activity per config,
+    // so windows "vanish" from it on desktop switches; anything doing
+    // lifecycle bookkeeping (stale color cleanup, saved-order pruning) must
+    // consult this model instead, where a window only disappears when it
+    // truly closes.
+    readonly property TaskManager.TasksModel allWindowsModel: TaskManager.TasksModel {
+        id: allWindowsModel
+
+        sortMode: TaskManager.TasksModel.SortDisabled
+        groupMode: TaskManager.TasksModel.GroupDisabled
+        filterByVirtualDesktop: false
+        filterByScreen: false
+        filterByActivity: false
+        filterNotMinimized: false
+    }
+
     readonly property TaskManagerApplet.Backend backend: TaskManagerApplet.Backend {
         id: backend
 
@@ -951,8 +982,17 @@ PlasmoidItem {
                 enforceContiguityTimer.restart();
             }
             function onRowsRemoved(): void {
-                staleCleanupTimer.restart();
                 enforceContiguityTimer.restart();
+            }
+        }
+
+        Connections {
+            target: allWindowsModel
+
+            // Row removal here means a window genuinely closed (the shadow
+            // model never filters), so stale bookkeeping can be cleaned up.
+            function onRowsRemoved(): void {
+                staleCleanupTimer.restart();
             }
         }
 
