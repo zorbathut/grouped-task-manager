@@ -116,7 +116,7 @@ There are no tests or linting infrastructure.
 
 ### C++ Layer
 - **backend.cpp/h** — Native utilities exposed to QML: jump list actions, places/recent documents, and critically `parentPid(pid)` (process tree walking) and `launcherPidsFromCgroup(pid)` (reads /proc cgroup to find launcher PIDs).
-- **colormanager.cpp/h** — Maps window IDs to color indices (1–8). Persists assignments to Plasmoid config. Emits change signals for QML bindings.
+- **colormanager.cpp/h** — Maps window IDs to color indices (1–24). Persists assignments to Plasmoid config. Emits change signals for QML bindings.
 - **smartlauncherbackend/item** — DBus integration for Unity launcher badges and progress bars.
 
 ### QML Layer

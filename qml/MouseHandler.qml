@@ -53,7 +53,7 @@ DropArea {
 
         // Only Task delegates are valid drop targets. GroupHeader rows
         // share the same GridLayout, and their .index is a color palette
-        // index (0-15), not a model row — using it as a move target
+        // index (0-23), not a model row — using it as a move target
         // teleports the dragged task.
         if (!above || !(above instanceof Task)) {
             return;

@@ -42,13 +42,17 @@ PlasmoidItem {
         "#e74c3c", "#3498db", "#2ecc71", "#f1c40f",
         "#e67e22", "#9b59b6", "#1abc9c", "#e91e63",
         "#795548", "#607d8b", "#8bc34a", "#00bcd4",
-        "#3f51b5", "#ff7043", "#9575cd", "#d4a574"
+        "#3f51b5", "#ff7043", "#9575cd", "#d4a574",
+        "#c6ff00", "#827717", "#1b5e20", "#1a3cff",
+        "#651fff", "#aa00ff", "#880e4f", "#f48fb1"
     ]
     readonly property var colorGroupNames: [
         "Red", "Blue", "Green", "Yellow",
         "Orange", "Purple", "Teal", "Pink",
         "Brown", "Slate", "Lime", "Cyan",
-        "Indigo", "Coral", "Lavender", "Tan"
+        "Indigo", "Coral", "Lavender", "Tan",
+        "Chartreuse", "Olive", "Forest", "Ultramarine",
+        "Violet", "Amethyst", "Wine", "Rose"
     ]
 
     // Custom category names
