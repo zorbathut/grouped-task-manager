@@ -2,11 +2,11 @@
 
 A fork of KDE Plasma's Icons-and-Text Task Manager with color-coded sticky groups.
 
-Right-click any window tab to assign one of 8 colors. Same-colored tabs stay together as a group -- you can drag them around as a unit, and uncolored tabs flow freely between groups. New windows automatically inherit colors from their parent process.
+Right-click any window tab to assign one of 24 colors. Same-colored tabs stay together as a group -- you can drag them around as a unit, and uncolored tabs flow freely between groups. New windows automatically inherit colors from their parent process.
 
 ## Features
 
-- **8 color groups** via right-click context menu on any window tab
+- **24 color groups** via right-click context menu on any window tab
 - **Sticky groups** -- same-colored tabs stay contiguous in the taskbar
 - **Group-aware drag and drop** -- dragging a colored tab outside its group moves the whole group; uncolored tabs drag freely and groups reassemble on drop
 - **Color inheritance** -- new windows inherit colors from:
