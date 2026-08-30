@@ -500,10 +500,11 @@ PlasmaCore.ToolTipArea {
             id: colorGroupTint
 
             property int colorIndex: 0
+            readonly property bool hasColor: colorIndex >= 1 && colorIndex <= task.tasksRoot.colorGroupColors.length
 
             anchors.fill: parent
-            visible: colorIndex > 0
-            color: colorIndex > 0 ? task.tasksRoot.colorGroupColors[colorIndex - 1] : "transparent"
+            visible: hasColor
+            color: hasColor ? task.tasksRoot.colorGroupColors[colorIndex - 1] : "transparent"
             opacity: 0.15
             radius: Math.max(frame.margins.top, 2)
 
@@ -751,7 +752,7 @@ PlasmaCore.ToolTipArea {
 
             PropertyChanges {
                 // When colored, render as "normal" so the tint looks identical to inactive; the indicator bar carries the focus state instead.
-                frame.basePrefix: colorGroupTint.colorIndex > 0 ? "normal" : "focus"
+                frame.basePrefix: colorGroupTint.hasColor ? "normal" : "focus"
             }
         }
     ]

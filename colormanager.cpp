@@ -31,7 +31,7 @@ void ColorManager::setColorAssignments(const QStringList &assignments)
         if (sep > 0 && sep < entry.length() - 1) {
             bool ok = false;
             const int colorIndex = entry.mid(sep + 1).toInt(&ok);
-            if (ok && colorIndex >= 1 && colorIndex <= MaxColors) {
+            if (ok && colorIndex >= 1) {
                 newColors.insert(entry.left(sep), colorIndex);
             }
         }
@@ -50,7 +50,7 @@ int ColorManager::getColor(const QString &windowId) const
 
 void ColorManager::setColor(const QString &windowId, int colorIndex)
 {
-    if (colorIndex < 1 || colorIndex > MaxColors) {
+    if (colorIndex < 1) {
         clearColor(windowId);
         return;
     }

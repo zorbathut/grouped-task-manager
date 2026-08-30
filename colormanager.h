@@ -26,8 +26,6 @@ public:
     QStringList colorAssignments() const;
     void setColorAssignments(const QStringList &assignments);
 
-    static constexpr int MaxColors = 16;
-
     Q_INVOKABLE int getColor(const QString &windowId) const;
     Q_INVOKABLE void setColor(const QString &windowId, int colorIndex);
     Q_INVOKABLE void clearColor(const QString &windowId);
