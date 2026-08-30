@@ -495,47 +495,17 @@ PlasmaCore.ToolTipArea {
         property string basePrefix: "normal"
         prefix: isHovered ? TaskManagerApplet.TaskTools.taskPrefixHovered(basePrefix, Plasmoid.location) : TaskManagerApplet.TaskTools.taskPrefix(basePrefix, Plasmoid.location)
 
-        // Color group tint: for unselected tabs, fills the whole area.
-        // For selected (active) tabs, only covers half so the selection
-        // highlight remains visible on the other half.
-        Item {
+        // Color group tint. Fills the whole button, edge to edge, so that adjacent tasks of one group read as a single block.
+        Rectangle {
             id: colorGroupTint
-            anchors.fill: parent
+
             property int colorIndex: 0
+
+            anchors.fill: parent
             visible: colorIndex > 0
-
-            readonly property bool isActive: task.model.IsActive
-            readonly property color tintColor: colorIndex > 0
-                ? task.tasksRoot.colorGroupColors[colorIndex - 1]
-                : "transparent"
-            readonly property real rad: Math.max(frame.margins.top, 2)
-
-            // Color tint — same for active and inactive since the
-            // frame's basePrefix is set to "normal" when active+colored.
-            Rectangle {
-                anchors.fill: parent
-                color: colorGroupTint.tintColor
-                opacity: 0.15
-                radius: colorGroupTint.rad
-            }
-
-            // Focus indicator on the non-colored half for active tabs.
-            // Uses the theme's highlight color to match the focus frame.
-            Rectangle {
-                visible: colorGroupTint.isActive
-                color: Kirigami.Theme.highlightColor
-                opacity: 0.6
-                radius: colorGroupTint.rad
-
-                anchors {
-                    top: task.tasksRoot.vertical ? parent.top : undefined
-                    left: task.tasksRoot.vertical ? undefined : parent.left
-                    bottom: parent.bottom
-                    right: parent.right
-                }
-                width: task.tasksRoot.vertical ? parent.width / 2 : parent.width
-                height: task.tasksRoot.vertical ? parent.height : parent.height / 2
-            }
+            color: colorIndex > 0 ? task.tasksRoot.colorGroupColors[colorIndex - 1] : "transparent"
+            opacity: 0.15
+            radius: Math.max(frame.margins.top, 2)
 
             Connections {
                 target: colorManager
@@ -558,6 +528,29 @@ PlasmaCore.ToolTipArea {
                 if (winIds && winIds.length > 0) {
                     colorGroupTint.colorIndex = colorManager.getColor(String(winIds[0]));
                 }
+            }
+        }
+
+        // Active-window indicator: a bar down the right edge, full button height, inset only on the right so it reads as belonging to this button rather than to the seam with the next one.
+
+        // The group tints are saturated, so an accent-colored bar competes with them on hue and loses. Push it to whichever luminance extreme the panel isn't and ring it in the panel background instead: no 15%-alpha tint can reach that end of the range, so the bar separates by brightness no matter which group color sits under it.
+        Rectangle {
+            id: indicatorActive
+
+            readonly property bool onDarkPanel: Kirigami.Theme.backgroundColor.hsvValue < 0.5
+
+            visible: task.model.IsActive
+            color: Qt.tint(Kirigami.Theme.highlightColor, onDarkPanel ? Qt.rgba(1, 1, 1, 0.55) : Qt.rgba(0, 0, 0, 0.4))
+            border.color: Kirigami.Theme.backgroundColor
+            border.width: 1
+            radius: Math.max(frame.margins.top, 2)
+            width: Math.round(Kirigami.Units.gridUnit)
+
+            anchors {
+                top: parent.top
+                bottom: parent.bottom
+                right: parent.right
+                rightMargin: frame.margins.right
             }
         }
 
@@ -757,8 +750,7 @@ PlasmaCore.ToolTipArea {
             when: task.model.IsActive
 
             PropertyChanges {
-                // When colored, render as "normal" so the colored half
-                // looks identical to inactive. Focus is shown separately.
+                // When colored, render as "normal" so the tint looks identical to inactive; the indicator bar carries the focus state instead.
                 frame.basePrefix: colorGroupTint.colorIndex > 0 ? "normal" : "focus"
             }
         }
