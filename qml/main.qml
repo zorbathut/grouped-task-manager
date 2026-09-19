@@ -778,11 +778,10 @@ PlasmoidItem {
             return launcherCount + startupsWithLaunchers;
         }
 
-        virtualDesktop: virtualDesktopInfo.currentDesktop
         screenGeometry: Plasmoid.containment.screenGeometry
         activity: activityInfo.currentActivity
 
-        filterByVirtualDesktop: Plasmoid.configuration.showOnlyCurrentDesktop
+        filterByCurrentVirtualDesktop: Plasmoid.configuration.showOnlyCurrentDesktop
         filterByScreen: Plasmoid.configuration.showOnlyCurrentScreen
         filterByActivity: Plasmoid.configuration.showOnlyCurrentActivity
         filterNotMinimized: Plasmoid.configuration.showOnlyMinimized
@@ -866,7 +865,7 @@ PlasmoidItem {
 
         sortMode: TaskManager.TasksModel.SortDisabled
         groupMode: TaskManager.TasksModel.GroupDisabled
-        filterByVirtualDesktop: false
+        filterByCurrentVirtualDesktop: false
         filterByScreen: false
         filterByActivity: false
         filterNotMinimized: false

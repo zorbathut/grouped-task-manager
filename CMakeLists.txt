@@ -46,7 +46,6 @@ add_definitions(-DTRANSLATION_DOMAIN=\"plasma_applet_org.kde.plasma.groupedtaskm
 plasma_add_applet(org.kde.plasma.groupedtaskmanager
     QML_SOURCES
         qml/AudioStream.qml
-        qml/Badge.qml
         qml/ConfigAppearance.qml
         qml/ConfigBehavior.qml
         qml/config.qml
@@ -116,7 +115,6 @@ set(_plasmoid_dir "${KDE_INSTALL_DATADIR}/plasma/plasmoids/org.kde.plasma.groupe
 
 install(FILES
     qml/AudioStream.qml
-    qml/Badge.qml
     qml/ConfigAppearance.qml
     qml/ConfigBehavior.qml
     qml/ContextMenu.qml
