@@ -108,7 +108,7 @@ sudo cmake --install build
 kquitapp6 plasmashell && plasmashell &   # restart to load changes
 ```
 
-Requires: CMake 3.22+, Qt 6.6+, KF6 6.0+, ECM, plus KDE Plasma 6 development headers (plasma-workspace, libksysguard, plasma-activities).
+Requires: CMake 3.22+, Qt 6.6+, KF6 6.0+, ECM, plus KDE Plasma 6.7+ development headers (plasma-workspace, libksysguard, plasma-activities).
 
 There are no tests or linting infrastructure.
 

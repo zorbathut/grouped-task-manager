@@ -38,7 +38,7 @@ find_package(PlasmaActivitiesStats REQUIRED)
 find_package(KSysGuard REQUIRED)
 
 # LibTaskManager and LibNotificationManager from plasma-workspace
-find_package(LibTaskManager REQUIRED)
+find_package(LibTaskManager 6.7 REQUIRED)
 find_package(LibNotificationManager REQUIRED)
 
 add_definitions(-DTRANSLATION_DOMAIN=\"plasma_applet_org.kde.plasma.groupedtaskmanager\")

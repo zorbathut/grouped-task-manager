@@ -20,7 +20,7 @@ When no colors are assigned, behavior is identical to the stock task manager.
 
 ## Requirements
 
-- KDE Plasma 6
+- KDE Plasma 6.7+
 - Qt 6.6+
 - KDE Frameworks 6
 
