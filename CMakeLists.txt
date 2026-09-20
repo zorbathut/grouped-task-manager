@@ -87,6 +87,7 @@ ecm_qt_declare_logging_category(org.kde.plasma.groupedtaskmanager
 
 target_link_libraries(org.kde.plasma.groupedtaskmanager PRIVATE
     Qt::Core
+    Qt::DBus
     Qt::Qml
     Qt::Quick
     Plasma::Activities
