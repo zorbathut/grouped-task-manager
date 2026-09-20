@@ -216,19 +216,24 @@ PlasmoidItem {
         }
     }
 
-    // Every window id known to allWindowsModel — the set of windows that
+    // Every window known to allWindowsModel — the set of windows that
     // actually exist, regardless of desktop/screen/activity filtering.
-    function allExistingWindowIds() {
-        let ids = [];
+    function allExistingWindows() {
+        let windows = [];
         for (let i = 0; i < allWindowsModel.count; i++) {
-            let winIds = allWindowsModel.data(allWindowsModel.index(i, 0),
-                                              TaskManager.AbstractTasksModel.WinIdList);
+            let idx = allWindowsModel.index(i, 0);
+            let winIds = allWindowsModel.data(idx, TaskManager.AbstractTasksModel.WinIdList);
             if (!winIds) continue;
+            let title = String(allWindowsModel.data(idx, Qt.DisplayRole) ?? "");
             for (let w = 0; w < winIds.length; w++) {
-                ids.push(String(winIds[w]));
+                windows.push({id: String(winIds[w]), title: title});
             }
         }
-        return ids;
+        return windows;
+    }
+
+    function allExistingWindowIds() {
+        return allExistingWindows().map(w => w.id);
     }
 
     Timer {
