@@ -70,6 +70,7 @@ plasma_add_applet(org.kde.plasma.groupedtaskmanager
         qml/code/TaskTools.js
     CPP_SOURCES
         backend.cpp
+        colorgroupsdbus.cpp
         colormanager.cpp
         smartlauncherbackend.cpp
         smartlauncheritem.cpp

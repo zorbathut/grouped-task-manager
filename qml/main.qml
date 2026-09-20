@@ -139,6 +139,38 @@ PlasmoidItem {
         }
     }
 
+    // Script-facing DBus interface.
+    TaskManagerApplet.ColorGroupsDBus {
+        windowLister: tasks.dbusWindowList
+        windowAssigner: tasks.dbusWindowAssign
+    }
+
+    function dbusWindowList() {
+        return allExistingWindows().map(w => ({id: w.id, title: w.title, color: colorManager.getColor(w.id)}));
+    }
+
+    // colorIndex -1 picks the lowest color no window is assigned to.
+    function dbusWindowAssign(winId, colorIndex, name) {
+        if (!allExistingWindowIds().includes(winId)) {
+            return {error: "WindowUnknown", message: "No window has the id " + winId};
+        }
+        let color = colorIndex;
+        if (color === -1) {
+            for (let i = 1; i <= colorGroupColors.length && color === -1; i++) {
+                if (colorManager.colorWindowCount(i) === 0) color = i;
+            }
+            if (color === -1) {
+                return {error: "ColorNoneFree", message: "All " + colorGroupColors.length + " colors already have windows"};
+            }
+        } else if (color < 1 || color > colorGroupColors.length) {
+            return {error: "ColorInvalid", message: "Color index must be -1 (first free) or 1 to " + colorGroupColors.length + ", got " + colorIndex};
+        }
+        // Color before name: a name on a color with no windows is cleared as orphaned.
+        colorManager.setColor(winId, color);
+        if (name.trim() !== "") setColorGroupName(color, name);
+        return {color: color};
+    }
+
     property bool _enforcing: false
 
     Timer {

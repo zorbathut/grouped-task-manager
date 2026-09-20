@@ -116,6 +116,7 @@ There are no tests or linting infrastructure.
 
 ### C++ Layer
 - **backend.cpp/h** — Native utilities exposed to QML: jump list actions, places/recent documents, and critically `parentPid(pid)` (process tree walking) and `launcherPidsFromCgroup(pid)` (reads /proc cgroup to find launcher PIDs).
+- **colorgroupsdbus.cpp/h** — Script-facing DBus interface (`net.pavlovian.groupedtaskmanager`, `/ColorGroups`). A thin bridge: its two bus methods forward to `dbusWindowList()` / `dbusWindowAssign()` in main.qml, where the model, palette and group names live.
 - **colormanager.cpp/h** — Maps window IDs to color indices (1–24). Persists assignments to Plasmoid config. Emits change signals for QML bindings.
 - **smartlauncherbackend/item** — DBus integration for Unity launcher badges and progress bars.
 
@@ -139,6 +140,8 @@ When the found ancestor owns multiple windows with *different* colors (e.g. one 
 **Contiguity Enforcement** — `enforceColorContiguity()` keeps same-colored tasks adjacent via drag-reordering. Triggered by a timer after model changes.
 
 **Activation Tracking** — Records most recent active window per PID with a 150ms settlement timer to filter rapid focus bouncing (e.g., Konsole tab creation). Used to disambiguate multi-window processes with different colors.
+
+**Scripting** — `WindowList` and `WindowAssign` are deliberately stateless; a script that wants "the window this command opens" snapshots the list, launches, and polls for a new id itself (README has the loop). Only the applet instance that registers `/ColorGroups` first owns the bus name; `registerObject` failing is the sole duplicate-instance signal, since `registerService` succeeds for a name the connection already owns.
 
 ### Configuration
 - **main.xml** — KConfig schema for all settings. Color assignments stored as StringLists (`"windowId=colorIndex"`). Custom group names stored similarly. Manual task order stored as a StringList of window ids (`taskOrder`), restored on startup by `applySavedTaskOrder()` in main.qml.
