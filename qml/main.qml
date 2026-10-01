@@ -347,7 +347,7 @@ PlasmoidItem {
             }
         }
 
-        // Strategy 2: PID tree walk (direct parent-child)
+        // Strategy 2: parent process walk. It ends at the first ancestor that owns a window even when that ancestor yields no color (its windows are uncolored, or ambiguous with nothing to break the tie), so a colored ancestor further up can't claim a child launched from an uncolored window.
         if (!colorManager.getColor(winId)) {
             let walkPid = pid;
             for (let depth = 0; depth < 5 && walkPid > 1; depth++) {
@@ -358,8 +358,17 @@ PlasmoidItem {
                     colorManager.setColor(winId, color);
                     break;
                 }
+                if (pidOwnsTask(walkPid)) break;
             }
         }
+    }
+
+    function pidOwnsTask(targetPid) {
+        for (let i = 0; i < taskRepeater.count; i++) {
+            let other = taskRepeater.itemAt(i);
+            if (other && other.pid === targetPid) return true;
+        }
+        return false;
     }
 
     // Parse a window title into weak-match tokens and an optional explicit

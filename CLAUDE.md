@@ -133,7 +133,7 @@ There are no tests or linting infrastructure.
 **Color Inheritance** — When a new window appears, three strategies run in order to auto-assign a color:
 1. Same-PID sibling: if another window from the same process already has a color
 2. Cgroup launcher detection: parses /proc/{pid}/cgroup to find the launcher PID
-3. Parent process tree: walks up to 5 levels of parent PIDs looking for colored ancestors
+3. Parent process tree: walks up to 5 levels of parent PIDs looking for colored ancestors, stopping at the first ancestor that owns any window
 
 When the found ancestor owns multiple windows with *different* colors (e.g. one Rider process with many project windows), disambiguation runs in two tiers: first project-path matching — the child's /proc paths are matched against candidate window titles (bracketed paths like `[~/werk/planefarer5]` as component-wise prefixes, then title tokens against path components, deepest match wins if unique or all one color), bracketed matches outranking token matches, and within each the cwd and command-line arguments ahead of the exe, so a natively-built tool run from its own checkout takes the color of the tab it was launched from — then falling back to the most recently focused window (activation tracking below). Path matching is what keeps a slow Rider run configuration attached to the window that launched it even if the user focuses a sibling window during the build.
 
