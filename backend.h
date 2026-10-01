@@ -62,6 +62,7 @@ public:
     Q_INVOKABLE QString processCwd(qint64 pid) const;
     Q_INVOKABLE QString processExe(qint64 pid) const;
     Q_INVOKABLE QStringList processCmdline(qint64 pid) const;
+    Q_INVOKABLE qint64 processParentPid(qint64 pid) const;
     Q_INVOKABLE QString homePath() const;
 
     Q_INVOKABLE static QUrl tryDecodeApplicationsUrl(const QUrl &launcherUrl);

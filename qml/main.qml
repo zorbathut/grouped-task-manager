@@ -347,11 +347,11 @@ PlasmoidItem {
             }
         }
 
-        // Strategy 2: parent process walk. It ends at the first ancestor that owns a window even when that ancestor yields no color (its windows are uncolored, or ambiguous with nothing to break the tie), so a colored ancestor further up can't claim a child launched from an uncolored window.
+        // Strategy 2: parent process walk. It deliberately crosses cgroup boundaries: Chromium/Electron apps and flatpaks move themselves into a scope of their own at startup, which hides their launcher from Strategy 1. It ends at the first ancestor that owns a window even when that ancestor yields no color (its windows are uncolored, or ambiguous with nothing to break the tie), so a colored ancestor further up can't claim a child launched from an uncolored window.
         if (!colorManager.getColor(winId)) {
             let walkPid = pid;
-            for (let depth = 0; depth < 5 && walkPid > 1; depth++) {
-                walkPid = backend.parentPid(walkPid);
+            for (let depth = 0; depth < 10 && walkPid > 1; depth++) {
+                walkPid = backend.processParentPid(walkPid);
                 if (walkPid <= 0) break;
                 let color = findColorFromPid(walkPid, pid);
                 if (color > 0) {

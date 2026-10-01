@@ -584,6 +584,19 @@ QStringList GroupedTaskManagerBackend::processCmdline(qint64 pid) const
     return result;
 }
 
+// Unlike parentPid(), this doesn't stop at cgroup boundaries; don't swap one for the other.
+qint64 GroupedTaskManagerBackend::processParentPid(qint64 pid) const
+{
+    QFile statusFile(QStringLiteral("/proc/%1/status").arg(pid));
+    if (!statusFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return -1;
+    }
+
+    static const QRegularExpression ppidPattern(QStringLiteral("^PPid:\\s*(\\d+)$"), QRegularExpression::MultilineOption);
+    const auto match = ppidPattern.match(QString::fromUtf8(statusFile.readAll()));
+    return match.hasMatch() ? match.captured(1).toLongLong() : -1;
+}
+
 QString GroupedTaskManagerBackend::homePath() const
 {
     return QDir::homePath();

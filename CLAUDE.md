@@ -115,7 +115,7 @@ There are no tests or linting infrastructure.
 ## Architecture
 
 ### C++ Layer
-- **backend.cpp/h** — Native utilities exposed to QML: jump list actions, places/recent documents, and critically `parentPid(pid)` (process tree walking) and `launcherPidsFromCgroup(pid)` (reads /proc cgroup to find launcher PIDs).
+- **backend.cpp/h** — Native utilities exposed to QML: jump list actions, places/recent documents, `parentPid(pid)` (upstream's cgroup-bounded parent lookup, used for audio streams), and the color-inheritance helpers: `processParentPid(pid)` (process tree walking) and `launcherPidsFromCgroup(pid)` (reads /proc cgroup to find launcher PIDs).
 - **colorgroupsdbus.cpp/h** — Script-facing DBus interface (`net.pavlovian.groupedtaskmanager`, `/ColorGroups`). A thin bridge: its two bus methods forward to `dbusWindowList()` / `dbusWindowAssign()` in main.qml, where the model, palette and group names live.
 - **colormanager.cpp/h** — Maps window IDs to color indices (1–24). Persists assignments to Plasmoid config. Emits change signals for QML bindings.
 - **smartlauncherbackend/item** — DBus integration for Unity launcher badges and progress bars.
@@ -133,7 +133,7 @@ There are no tests or linting infrastructure.
 **Color Inheritance** — When a new window appears, three strategies run in order to auto-assign a color:
 1. Same-PID sibling: if another window from the same process already has a color
 2. Cgroup launcher detection: parses /proc/{pid}/cgroup to find the launcher PID
-3. Parent process tree: walks up to 5 levels of parent PIDs looking for colored ancestors, stopping at the first ancestor that owns any window
+3. Parent process tree: walks up to 10 levels of parent PIDs looking for colored ancestors, stopping at the first ancestor that owns any window. The walk crosses cgroup boundaries, because Chromium/Electron apps and flatpaks move themselves into a scope of their own at startup, which hides the launcher from strategy 2
 
 When the found ancestor owns multiple windows with *different* colors (e.g. one Rider process with many project windows), disambiguation runs in two tiers: first project-path matching — the child's /proc paths are matched against candidate window titles (bracketed paths like `[~/werk/planefarer5]` as component-wise prefixes, then title tokens against path components, deepest match wins if unique or all one color), bracketed matches outranking token matches, and within each the cwd and command-line arguments ahead of the exe, so a natively-built tool run from its own checkout takes the color of the tab it was launched from — then falling back to the most recently focused window (activation tracking below). Path matching is what keeps a slow Rider run configuration attached to the window that launched it even if the user focuses a sibling window during the build.
 
