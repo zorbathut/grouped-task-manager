@@ -387,41 +387,40 @@ PlasmoidItem {
         return path.split("/").filter(c => c.length > 0);
     }
 
-    // The filesystem footprint of a process, as component arrays: cwd, exe,
-    // and any absolute paths on its command line.
-    function _processPaths(pid) {
-        let paths = [];
+    // The filesystem footprint of a process, as tiers of component arrays, most telling first: where it was started (cwd) and what it was pointed at (absolute command-line arguments), then where its binary lives (exe). This way a natively-built tool run from its own checkout belongs to the project it was launched for rather than to its checkout; an interpreted script still lands in tier 1 via its script path, as does anything whose launcher chdirs into the program's directory. argv[0] is skipped since the exe tier covers it.
+    function _processPathTiers(pid) {
+        let started = [];
         let cwd = backend.processCwd(pid);
-        if (cwd) paths.push(cwd);
-        let exe = backend.processExe(pid);
-        if (exe) paths.push(exe);
-        let args = backend.processCmdline(pid);
+        if (cwd) started.push(cwd);
+        let args = backend.processCmdline(pid).slice(1);
         for (let a of args) {
-            if (a.startsWith("/") || a.startsWith("~")) paths.push(a);
+            if (a.startsWith("/") || a.startsWith("~")) started.push(a);
         }
-        return paths.map(p => _pathComponents(p));
+        let exe = backend.processExe(pid);
+        let binary = exe ? [exe] : [];
+        return [started, binary].map(tier => tier.map(p => _pathComponents(p)));
     }
 
-    // Decide which of an ambiguous parent's windows a new child window
-    // belongs to, by matching the child process's filesystem footprint
-    // against the candidates' window titles. Returns the matched candidate
-    // ({winId, color, title}) or null.
+    // Decide which of an ambiguous parent's windows a new child window belongs to, by matching the child process's filesystem footprint against the candidates' window titles. Returns the matched candidate ({winId, color, title}) or null.
     //
-    // Strong match: a bracketed project path in the title is a
-    // component-wise prefix of one of the child's paths (component-wise so
-    // ~/werk/planefarer doesn't claim children of ~/werk/planefarer5).
-    // Weak match: a title token equals a path component, case-insensitively;
-    // deeper components outrank shallow ones so "planefarer5" beats "zorba"
-    // for /home/zorba/werk/planefarer5. A candidate whose bracketed path
-    // matches nothing is contradicted — it identified its project and the
-    // child isn't from it — and is excluded from weak matching. Only a
-    // unique best match wins, or a tie between same-colored windows (one
-    // project open in two Konsole windows); on any other tie the caller
-    // falls back to focus-based disambiguation.
+    // A strong (bracketed-path) match in any tier outranks every weak match; within each strength, tiers are tried in order. The first tier that matches anything decides, even if it can't decide uniquely, so a weaker tier never overrides an ambiguous stronger one.
     function _matchCandidateByProjectPath(childPid, candidates) {
-        let childPaths = _processPaths(childPid);
-        if (childPaths.length === 0) return null;
+        let tiers = _processPathTiers(childPid).map(paths => _projectPathMatches(paths, candidates));
+        for (let strength of ["strong", "weak"]) {
+            for (let tier of tiers) {
+                let winners = tier[strength];
+                if (winners.length === 0) continue;
+                // A tie between same-colored windows (one project open in two Konsole windows) is still a decision.
+                return winners.every(c => c.color === winners[0].color) ? winners[0] : null;
+            }
+        }
+        return null;
+    }
 
+    // The candidates that best match one tier of a child's paths, as {strong, weak} arrays; several come back in one array on a tie.
+    //
+    // Strong match: a bracketed project path in the title is a component-wise prefix of one of the child's paths (component-wise so ~/werk/planefarer doesn't claim children of ~/werk/planefarer5). Weak match: a title token equals a path component, case-insensitively; deeper components outrank shallow ones so "planefarer5" beats "zorba" for /home/zorba/werk/planefarer5. A candidate whose bracketed path matches nothing is contradicted — it identified its project and the child isn't from it — and is excluded from weak matching.
+    function _projectPathMatches(childPaths, candidates) {
         let strong = []; // {cand, depth}
         let weak = [];   // {cand, depth}
         for (let cand of candidates) {
@@ -450,11 +449,11 @@ PlasmoidItem {
             if (depth >= 0) weak.push({ cand: cand, depth: depth });
         }
 
-        let pool = strong.length > 0 ? strong : weak;
-        if (pool.length === 0) return null;
-        let best = pool.reduce((a, e) => Math.max(a, e.depth), -1);
-        let winners = pool.filter(e => e.depth === best).map(e => e.cand);
-        return winners.every(c => c.color === winners[0].color) ? winners[0] : null;
+        let deepest = pool => {
+            let best = pool.reduce((a, e) => Math.max(a, e.depth), -1);
+            return pool.filter(e => e.depth === best).map(e => e.cand);
+        };
+        return { strong: deepest(strong), weak: deepest(weak) };
     }
 
     // Find the color to inherit from a parent PID. When the PID owns
