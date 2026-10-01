@@ -415,8 +415,9 @@ PlasmoidItem {
     // for /home/zorba/werk/planefarer5. A candidate whose bracketed path
     // matches nothing is contradicted — it identified its project and the
     // child isn't from it — and is excluded from weak matching. Only a
-    // unique best match wins; on a tie the caller falls back to focus-based
-    // disambiguation.
+    // unique best match wins, or a tie between same-colored windows (one
+    // project open in two Konsole windows); on any other tie the caller
+    // falls back to focus-based disambiguation.
     function _matchCandidateByProjectPath(childPid, candidates) {
         let childPaths = _processPaths(childPid);
         if (childPaths.length === 0) return null;
@@ -452,8 +453,8 @@ PlasmoidItem {
         let pool = strong.length > 0 ? strong : weak;
         if (pool.length === 0) return null;
         let best = pool.reduce((a, e) => Math.max(a, e.depth), -1);
-        let winners = pool.filter(e => e.depth === best);
-        return winners.length === 1 ? winners[0].cand : null;
+        let winners = pool.filter(e => e.depth === best).map(e => e.cand);
+        return winners.every(c => c.color === winners[0].color) ? winners[0] : null;
     }
 
     // Find the color to inherit from a parent PID. When the PID owns

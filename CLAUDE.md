@@ -135,7 +135,7 @@ There are no tests or linting infrastructure.
 2. Cgroup launcher detection: parses /proc/{pid}/cgroup to find the launcher PID
 3. Parent process tree: walks up to 5 levels of parent PIDs looking for colored ancestors
 
-When the found ancestor owns multiple windows with *different* colors (e.g. one Rider process with many project windows), disambiguation runs in two tiers: first project-path matching — the child's /proc cwd/exe/cmdline paths are matched against candidate window titles (bracketed paths like `[~/werk/planefarer5]` as component-wise prefixes, then title tokens against path components, deepest unique match wins) — then falling back to the most recently focused window (activation tracking below). Path matching is what keeps a slow Rider run configuration attached to the window that launched it even if the user focuses a sibling window during the build.
+When the found ancestor owns multiple windows with *different* colors (e.g. one Rider process with many project windows), disambiguation runs in two tiers: first project-path matching — the child's /proc cwd/exe/cmdline paths are matched against candidate window titles (bracketed paths like `[~/werk/planefarer5]` as component-wise prefixes, then title tokens against path components, deepest match wins if unique or all one color) — then falling back to the most recently focused window (activation tracking below). Path matching is what keeps a slow Rider run configuration attached to the window that launched it even if the user focuses a sibling window during the build.
 
 **Contiguity Enforcement** — `enforceColorContiguity()` keeps same-colored tasks adjacent via drag-reordering. Triggered by a timer after model changes.
 
