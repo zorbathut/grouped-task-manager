@@ -93,22 +93,27 @@ Item {
         width: editField.implicitWidth + Kirigami.Units.largeSpacing * 2
         height: editField.implicitHeight + Kirigami.Units.largeSpacing * 2
 
-        onActiveChanged: {
-            if (!active && visible) {
-                commitAndClose();
+        property bool cancelled: false
+
+        // Not onActiveChanged: Qt reports a popup as active while focus sits on any other window transient for the same panel (another header's popup, a context menu), so it would never see its own deactivation and could be stranded behind app windows.
+        hideOnWindowDeactivate: true
+
+        onVisibleChanged: {
+            if (!visible && !cancelled) {
+                header.tasksRoot.setColorGroupName(header.colorIndex, editField.text);
             }
         }
 
         function open() {
-            editField.text = headerLabel.text;
-            visible = true;
+            if (!visible) {
+                cancelled = false;
+                editField.text = headerLabel.text;
+                visible = true;
+                editField.selectAll();
+            }
+            // An already-visible popup isn't re-mapped, so re-activate (and thereby raise) it explicitly.
+            requestActivate();
             editField.forceActiveFocus();
-            editField.selectAll();
-        }
-
-        function commitAndClose() {
-            visible = false;
-            header.tasksRoot.setColorGroupName(header.colorIndex, editField.text);
         }
 
         PlasmaComponents3.TextField {
@@ -116,9 +121,10 @@ Item {
             anchors.centerIn: parent
             implicitWidth: Math.max(Kirigami.Units.gridUnit * 10, header.width)
 
-            onAccepted: editPopup.commitAndClose()
+            onAccepted: editPopup.visible = false
 
             Keys.onEscapePressed: {
+                editPopup.cancelled = true;
                 editPopup.visible = false;
             }
         }
