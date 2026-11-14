@@ -60,10 +60,11 @@ The applet publishes a DBus interface so a script can open a set of windows and 
 
 - `WindowList() -> a(ssi)` -- `(windowId, title, colorIndex)` for every window, including ones on other desktops, screens and activities. `colorIndex` is `0` for an uncolored window. Window ids are opaque brace-wrapped UUIDs like `{73e1fd2b-d232-4be9-9fc9-75d8163b89a9}`; quote them in a shell.
 - `WindowAssign(s windowId, i colorIndex, s groupName) -> i colorIndex` -- puts the window in color `1`..`24`, or pass `-1` for the lowest color that has no windows. Returns the color actually used, so the rest of a group can be sent to the same place. A non-empty `groupName` renames the group; an empty one leaves its name alone.
+- `GroupList() -> a(is)` -- `(colorIndex, name)` for every color group with a custom name. Groups still using their built-in name ("Blue") aren't listed.
 
 Errors are named `net.pavlovian.groupedtaskmanager.Error.WindowUnknown`, `.ColorInvalid`, `.ColorNoneFree`, and `.Failed` for a bug in the applet. `busctl` prints only the message and drops the error name, so use `gdbus` or a real DBus binding if you need to tell them apart.
 
-The applet only answers "which windows exist" and "color this one"; waiting for a window to appear is the script's job. That is what makes apps that open new windows inside an existing process (Konsole, JetBrains IDEs) workable: take a snapshot, launch, and wait for an id that wasn't in the snapshot. With python-dbus:
+The applet never waits for windows; waiting for a window to appear is the script's job. That is what makes apps that open new windows inside an existing process (Konsole, JetBrains IDEs) workable: take a snapshot, launch, and wait for an id that wasn't in the snapshot. With python-dbus:
 
 ```python
 import shutil, subprocess, time
@@ -103,6 +104,8 @@ Things to know:
 - The interface is unauthenticated: anything on your session bus can list your window titles and recolor them. Plasma's own window runner already exposes titles the same way, but this is meant for a personal machine, not as something a distribution should ship enabled. The object is also reachable through plasmashell's other bus names, not just this one.
 - Only one instance of the applet provides the interface. If you have it on two panels and remove the one that registered first, the interface is gone until plasmashell restarts.
 - A window opened inside an already-running colored process (a second Konsole window, a second Rider project) briefly takes that process's color before the script recolors it; detaching the launch can't prevent that, since the window really does belong to the colored process.
+- On Wayland, window ids are KWin's own window ids, so `org.kde.KWin.getWindowInfo` on `org.kde.KWin /KWin` gives the pid, desktop file, virtual desktops, activities, minimized state and geometry for an id from `WindowList`.
+- Titles are read fresh on every call, but a title change takes a moment to reach the applet; poll for it rather than reading once.
 - Naming a group with its built-in name ("Blue" for color 2) just clears any custom name.
 - A color counts as free when no window is assigned to it, and a group's custom name is dropped as soon as its last window leaves, including when that window is recolored.
 

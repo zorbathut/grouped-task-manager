@@ -143,6 +143,7 @@ PlasmoidItem {
     TaskManagerApplet.ColorGroupsDBus {
         windowLister: tasks.dbusWindowList
         windowAssigner: tasks.dbusWindowAssign
+        groupLister: tasks.dbusGroupList
     }
 
     function dbusWindowList() {
@@ -169,6 +170,10 @@ PlasmoidItem {
         colorManager.setColor(winId, color);
         if (name.trim() !== "") setColorGroupName(color, name);
         return {color: color};
+    }
+
+    function dbusGroupList() {
+        return Object.keys(_customNameMap).map(Number).sort((a, b) => a - b).map(c => ({color: c, name: _customNameMap[c]}));
     }
 
     property bool _enforcing: false

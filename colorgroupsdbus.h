@@ -25,6 +25,14 @@ struct ColorGroupsDBusWindow {
 QDBusArgument &operator<<(QDBusArgument &argument, const ColorGroupsDBusWindow &window);
 const QDBusArgument &operator>>(const QDBusArgument &argument, ColorGroupsDBusWindow &window);
 
+struct ColorGroupsDBusGroup {
+    int color = 0;
+    QString name;
+};
+
+QDBusArgument &operator<<(QDBusArgument &argument, const ColorGroupsDBusGroup &group);
+const QDBusArgument &operator>>(const QDBusArgument &argument, ColorGroupsDBusGroup &group);
+
 class ColorGroupsDBus : public QObject, public QQmlParserStatus, protected QDBusContext
 {
     Q_OBJECT
@@ -35,6 +43,7 @@ class ColorGroupsDBus : public QObject, public QQmlParserStatus, protected QDBus
     // QML functions the bus methods forward to. `this` inside them is not the object that declares them, so they must reach the applet through ids.
     Q_PROPERTY(QJSValue windowLister READ windowLister WRITE setWindowLister)
     Q_PROPERTY(QJSValue windowAssigner READ windowAssigner WRITE setWindowAssigner)
+    Q_PROPERTY(QJSValue groupLister READ groupLister WRITE setGroupLister)
 
 public:
     explicit ColorGroupsDBus(QObject *parent = nullptr);
@@ -44,6 +53,8 @@ public:
     void setWindowLister(const QJSValue &lister);
     QJSValue windowAssigner() const;
     void setWindowAssigner(const QJSValue &assigner);
+    QJSValue groupLister() const;
+    void setGroupLister(const QJSValue &lister);
 
     void classBegin() override;
     void componentComplete() override;
@@ -51,6 +62,7 @@ public:
 public Q_SLOTS:
     Q_SCRIPTABLE QList<ColorGroupsDBusWindow> WindowList();
     Q_SCRIPTABLE int WindowAssign(const QString &windowId, int colorIndex, const QString &groupName);
+    Q_SCRIPTABLE QList<ColorGroupsDBusGroup> GroupList();
 
 private:
     std::optional<QJSValue> call(QJSValue &callback, const char *name, const QJSValueList &args);
@@ -59,5 +71,6 @@ private:
 
     QJSValue m_windowLister;
     QJSValue m_windowAssigner;
+    QJSValue m_groupLister;
     bool m_owner = false;
 };

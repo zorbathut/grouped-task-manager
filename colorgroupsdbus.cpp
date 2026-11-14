@@ -34,6 +34,22 @@ const QDBusArgument &operator>>(const QDBusArgument &argument, ColorGroupsDBusWi
     return argument;
 }
 
+QDBusArgument &operator<<(QDBusArgument &argument, const ColorGroupsDBusGroup &group)
+{
+    argument.beginStructure();
+    argument << group.color << group.name;
+    argument.endStructure();
+    return argument;
+}
+
+const QDBusArgument &operator>>(const QDBusArgument &argument, ColorGroupsDBusGroup &group)
+{
+    argument.beginStructure();
+    argument >> group.color >> group.name;
+    argument.endStructure();
+    return argument;
+}
+
 ColorGroupsDBus::ColorGroupsDBus(QObject *parent)
     : QObject(parent)
 {
@@ -66,6 +82,16 @@ void ColorGroupsDBus::setWindowAssigner(const QJSValue &assigner)
     m_windowAssigner = assigner;
 }
 
+QJSValue ColorGroupsDBus::groupLister() const
+{
+    return m_groupLister;
+}
+
+void ColorGroupsDBus::setGroupLister(const QJSValue &lister)
+{
+    m_groupLister = lister;
+}
+
 void ColorGroupsDBus::classBegin()
 {
 }
@@ -74,6 +100,8 @@ void ColorGroupsDBus::componentComplete()
 {
     qDBusRegisterMetaType<ColorGroupsDBusWindow>();
     qDBusRegisterMetaType<QList<ColorGroupsDBusWindow>>();
+    qDBusRegisterMetaType<ColorGroupsDBusGroup>();
+    qDBusRegisterMetaType<QList<ColorGroupsDBusGroup>>();
 
     auto sessionBus = QDBusConnection::sessionBus();
 
@@ -125,6 +153,29 @@ int ColorGroupsDBus::WindowAssign(const QString &windowId, int colorIndex, const
         return 0;
     }
     return result->property(u"color"_s).toInt();
+}
+
+QList<ColorGroupsDBusGroup> ColorGroupsDBus::GroupList()
+{
+    const auto result = call(m_groupLister, "groupLister", {});
+    if (!result) {
+        return {};
+    }
+
+    if (!result->isArray()) {
+        qCWarning(TASKMANAGER_DEBUG) << "groupLister returned" << result->toString() << "instead of an array";
+        fail(u"Failed"_s, u"The applet produced a malformed group list"_s);
+        return {};
+    }
+
+    QList<ColorGroupsDBusGroup> groups;
+    const int length = result->property(u"length"_s).toInt();
+    groups.reserve(length);
+    for (int i = 0; i < length; ++i) {
+        const QJSValue entry = result->property(i);
+        groups.append({entry.property(u"color"_s).toInt(), entry.property(u"name"_s).toString()});
+    }
+    return groups;
 }
 
 // Empty when the callback couldn't be run; the failure has been reported by then.
