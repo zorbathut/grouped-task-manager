@@ -144,6 +144,8 @@ PlasmoidItem {
         windowLister: tasks.dbusWindowList
         windowAssigner: tasks.dbusWindowAssign
         groupLister: tasks.dbusGroupList
+        orderLister: tasks.dbusOrderList
+        orderSetter: tasks.dbusOrderSet
     }
 
     function dbusWindowList() {
@@ -174,6 +176,43 @@ PlasmoidItem {
 
     function dbusGroupList() {
         return Object.keys(_customNameMap).map(Number).sort((a, b) => a - b).map(c => ({color: c, name: _customNameMap[c]}));
+    }
+
+    // The saved order only describes the taskbar under manual sorting, and only one window per row is tracked, so grouped rows would make it meaningless.
+    function _orderUnavailableReason() {
+        if (tasksModel.sortMode !== TaskManager.TasksModel.SortManual) return "Task order is only kept when sorting is set to Manually";
+        if (tasksModel.groupMode !== TaskManager.TasksModel.GroupDisabled) return "Task order is only kept when grouping is set to Do not group";
+        return "";
+    }
+
+    function dbusOrderList() {
+        let reason = _orderUnavailableReason();
+        if (reason !== "") return {error: "OrderUnavailable", message: reason};
+        let existing = allExistingWindowIds();
+        let existingSet = new Set(existing);
+        let order = (_mergedTaskOrder() ?? _desiredOrder).filter(id => existingSet.has(id));
+        let orderSet = new Set(order);
+        return {order: order.concat(existing.filter(id => !orderSet.has(id)))};
+    }
+
+    function dbusOrderSet(ids) {
+        let reason = _orderUnavailableReason();
+        if (reason !== "") return {error: "OrderUnavailable", message: reason};
+        if (dragSource) return {error: "OrderBusy", message: "A task is being dragged; try again once it is dropped"};
+        let existingSet = new Set(allExistingWindowIds());
+        let unknown = ids.filter(id => !existingSet.has(id));
+        if (unknown.length > 0) {
+            return {error: "WindowUnknown", message: "No window has the id " + unknown.join(", ")};
+        }
+        let listed = [...new Set(ids)];
+        let listedSet = new Set(listed);
+        let rest = dbusOrderList().order.filter(id => !listedSet.has(id));
+        _desiredOrder = listed.concat(rest);
+        // Written here as well as by the contiguity pass, whose save is skipped when this panel shows no windows.
+        Plasmoid.configuration.taskOrder = _desiredOrder;
+        applySavedTaskOrder();
+        enforceColorContiguity();
+        return {};
     }
 
     property bool _enforcing: false

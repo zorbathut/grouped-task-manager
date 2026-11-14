@@ -11,6 +11,7 @@
 #include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusMetaType>
+#include <QJSEngine>
 
 using namespace Qt::StringLiterals;
 
@@ -90,6 +91,26 @@ QJSValue ColorGroupsDBus::groupLister() const
 void ColorGroupsDBus::setGroupLister(const QJSValue &lister)
 {
     m_groupLister = lister;
+}
+
+QJSValue ColorGroupsDBus::orderLister() const
+{
+    return m_orderLister;
+}
+
+void ColorGroupsDBus::setOrderLister(const QJSValue &lister)
+{
+    m_orderLister = lister;
+}
+
+QJSValue ColorGroupsDBus::orderSetter() const
+{
+    return m_orderSetter;
+}
+
+void ColorGroupsDBus::setOrderSetter(const QJSValue &setter)
+{
+    m_orderSetter = setter;
 }
 
 void ColorGroupsDBus::classBegin()
@@ -176,6 +197,39 @@ QList<ColorGroupsDBusGroup> ColorGroupsDBus::GroupList()
         groups.append({entry.property(u"color"_s).toInt(), entry.property(u"name"_s).toString()});
     }
     return groups;
+}
+
+QStringList ColorGroupsDBus::OrderList()
+{
+    const auto result = callChecked(m_orderLister, "orderLister", {});
+    if (!result) {
+        return {};
+    }
+    const QJSValue order = result->property(u"order"_s);
+    if (!order.isArray()) {
+        qCWarning(TASKMANAGER_DEBUG) << "orderLister returned" << result->toString() << "instead of an array";
+        fail(u"Failed"_s, u"The applet produced a malformed task order"_s);
+        return {};
+    }
+
+    QStringList ids;
+    const int length = order.property(u"length"_s).toInt();
+    ids.reserve(length);
+    for (int i = 0; i < length; ++i) {
+        ids.append(order.property(i).toString());
+    }
+    return ids;
+}
+
+void ColorGroupsDBus::OrderSet(const QStringList &windowIds)
+{
+    QJSEngine *engine = qjsEngine(this);
+    if (!engine) {
+        qCWarning(TASKMANAGER_DEBUG) << "OrderSet called on an object with no QML engine";
+        fail(u"Failed"_s, u"The applet is not ready to handle this call"_s);
+        return;
+    }
+    callChecked(m_orderSetter, "orderSetter", {engine->toScriptValue(windowIds)});
 }
 
 // Empty when the callback couldn't be run; the failure has been reported by then.

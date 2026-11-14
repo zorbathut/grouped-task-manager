@@ -61,8 +61,10 @@ The applet publishes a DBus interface so a script can open a set of windows and 
 - `WindowList() -> a(ssi)` -- `(windowId, title, colorIndex)` for every window, including ones on other desktops, screens and activities. `colorIndex` is `0` for an uncolored window. Window ids are opaque brace-wrapped UUIDs like `{73e1fd2b-d232-4be9-9fc9-75d8163b89a9}`; quote them in a shell.
 - `WindowAssign(s windowId, i colorIndex, s groupName) -> i colorIndex` -- puts the window in color `1`..`24`, or pass `-1` for the lowest color that has no windows. Returns the color actually used, so the rest of a group can be sent to the same place. A non-empty `groupName` renames the group; an empty one leaves its name alone.
 - `GroupList() -> a(is)` -- `(colorIndex, name)` for every color group with a custom name. Groups still using their built-in name ("Blue") aren't listed.
+- `OrderList() -> as` -- every window id in taskbar order. The order spans windows on other desktops, screens and activities too; windows this applet has never shown come last.
+- `OrderSet(as windowIds)` -- puts the listed windows first, in that order, and every other window after them in its existing order. An id listed twice keeps its first place. Same-colored windows are then pulled together after the first one of their color, so the order of groups follows where each color first appears. Returns once the new order is applied and saved.
 
-Errors are named `net.pavlovian.groupedtaskmanager.Error.WindowUnknown`, `.ColorInvalid`, `.ColorNoneFree`, and `.Failed` for a bug in the applet. `busctl` prints only the message and drops the error name, so use `gdbus` or a real DBus binding if you need to tell them apart.
+Errors are named `net.pavlovian.groupedtaskmanager.Error.WindowUnknown` (from `OrderSet`, the message lists every unknown id), `.ColorInvalid`, `.ColorNoneFree`, `.OrderUnavailable` (sorting isn't set to Manually, or grouping is on, so there is no task order to read or set), `.OrderBusy` (a task is being dragged; retry), and `.Failed` for a bug in the applet. `busctl` prints only the message and drops the error name, so use `gdbus` or a real DBus binding if you need to tell them apart.
 
 The applet never waits for windows; waiting for a window to appear is the script's job. That is what makes apps that open new windows inside an existing process (Konsole, JetBrains IDEs) workable: take a snapshot, launch, and wait for an id that wasn't in the snapshot. With python-dbus:
 
@@ -106,6 +108,8 @@ Things to know:
 - A window opened inside an already-running colored process (a second Konsole window, a second Rider project) briefly takes that process's color before the script recolors it; detaching the launch can't prevent that, since the window really does belong to the colored process.
 - On Wayland, window ids are KWin's own window ids, so `org.kde.KWin.getWindowInfo` on `org.kde.KWin /KWin` gives the pid, desktop file, virtual desktops, activities, minimized state and geometry for an id from `WindowList`.
 - Titles are read fresh on every call, but a title change takes a moment to reach the applet; poll for it rather than reading once.
+- To rebuild a taskbar (after a reboot, say), color every window with `WindowAssign` first and call `OrderSet` last: a color change regroups the taskbar and would undo an order set before it. Windows that appear afterwards keep whatever slot they land in, so call `OrderSet` again once they're all there.
+- Grouping same-colored windows together only happens among the windows the panel currently shows, so the place a window on another desktop or screen gets in `OrderList` is approximate until it is shown. The order belongs to the applet instance that provides the interface.
 - Naming a group with its built-in name ("Blue" for color 2) just clears any custom name.
 - A color counts as free when no window is assigned to it, and a group's custom name is dropped as soon as its last window leaves, including when that window is recolored.
 

@@ -116,7 +116,7 @@ There are no tests or linting infrastructure.
 
 ### C++ Layer
 - **backend.cpp/h** — Native utilities exposed to QML: jump list actions, places/recent documents, `parentPid(pid)` (upstream's cgroup-bounded parent lookup, used for audio streams), and the color-inheritance helpers: `processParentPid(pid)` (process tree walking) and `launcherPidsFromCgroup(pid)` (reads /proc cgroup to find launcher PIDs).
-- **colorgroupsdbus.cpp/h** — Script-facing DBus interface (`net.pavlovian.groupedtaskmanager`, `/ColorGroups`). A thin bridge: each bus method (`WindowList`, `WindowAssign`, `GroupList`) forwards to the matching `dbus*()` function in main.qml, where the model, palette and group names live.
+- **colorgroupsdbus.cpp/h** — Script-facing DBus interface (`net.pavlovian.groupedtaskmanager`, `/ColorGroups`). A thin bridge: each bus method (`WindowList`, `WindowAssign`, `GroupList`, `OrderList`, `OrderSet`) forwards to the matching `dbus*()` function in main.qml, where the model, palette and group names live.
 - **colormanager.cpp/h** — Maps window IDs to color indices (1–24). Persists assignments to Plasmoid config. Emits change signals for QML bindings.
 - **smartlauncherbackend/item** — DBus integration for Unity launcher badges and progress bars.
 

@@ -44,6 +44,8 @@ class ColorGroupsDBus : public QObject, public QQmlParserStatus, protected QDBus
     Q_PROPERTY(QJSValue windowLister READ windowLister WRITE setWindowLister)
     Q_PROPERTY(QJSValue windowAssigner READ windowAssigner WRITE setWindowAssigner)
     Q_PROPERTY(QJSValue groupLister READ groupLister WRITE setGroupLister)
+    Q_PROPERTY(QJSValue orderLister READ orderLister WRITE setOrderLister)
+    Q_PROPERTY(QJSValue orderSetter READ orderSetter WRITE setOrderSetter)
 
 public:
     explicit ColorGroupsDBus(QObject *parent = nullptr);
@@ -55,6 +57,10 @@ public:
     void setWindowAssigner(const QJSValue &assigner);
     QJSValue groupLister() const;
     void setGroupLister(const QJSValue &lister);
+    QJSValue orderLister() const;
+    void setOrderLister(const QJSValue &lister);
+    QJSValue orderSetter() const;
+    void setOrderSetter(const QJSValue &setter);
 
     void classBegin() override;
     void componentComplete() override;
@@ -63,6 +69,8 @@ public Q_SLOTS:
     Q_SCRIPTABLE QList<ColorGroupsDBusWindow> WindowList();
     Q_SCRIPTABLE int WindowAssign(const QString &windowId, int colorIndex, const QString &groupName);
     Q_SCRIPTABLE QList<ColorGroupsDBusGroup> GroupList();
+    Q_SCRIPTABLE QStringList OrderList();
+    Q_SCRIPTABLE void OrderSet(const QStringList &windowIds);
 
 private:
     std::optional<QJSValue> call(QJSValue &callback, const char *name, const QJSValueList &args);
@@ -72,5 +80,7 @@ private:
     QJSValue m_windowLister;
     QJSValue m_windowAssigner;
     QJSValue m_groupLister;
+    QJSValue m_orderLister;
+    QJSValue m_orderSetter;
     bool m_owner = false;
 };
