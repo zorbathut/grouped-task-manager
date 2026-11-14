@@ -585,6 +585,14 @@ PlasmoidItem {
         if (tasksModel.sortMode !== TaskManager.TasksModel.SortManual) return;
         if (dragSource) return;
 
+        let merged = _mergedTaskOrder();
+        if (merged === null) return;
+        _desiredOrder = merged;
+        Plasmoid.configuration.taskOrder = merged;
+    }
+
+    // The repeater's current order with the saved positions of windows it isn't showing merged back in, or null when it shows no windows at all.
+    function _mergedTaskOrder() {
         let current = [];
         for (let i = 0; i < taskRepeater.count; i++) {
             let wid = getWindowIdForTask(taskRepeater.itemAt(i));
@@ -592,7 +600,7 @@ PlasmoidItem {
         }
         // Same guard as removeStale: the model is transiently empty during
         // containment rebuilds; don't persist that over the real order.
-        if (current.length === 0) return;
+        if (current.length === 0) return null;
 
         let currentSet = {};
         for (let id of current) currentSet[id] = true;
@@ -614,8 +622,7 @@ PlasmoidItem {
             merged.push(id);
             if (anchored[id]) merged = merged.concat(anchored[id]);
         }
-        _desiredOrder = merged;
-        Plasmoid.configuration.taskOrder = merged;
+        return merged;
     }
 
     function enforceColorContiguity() {
