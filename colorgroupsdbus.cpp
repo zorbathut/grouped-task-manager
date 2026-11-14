@@ -115,13 +115,8 @@ QList<ColorGroupsDBusWindow> ColorGroupsDBus::WindowList()
 
 int ColorGroupsDBus::WindowAssign(const QString &windowId, int colorIndex, const QString &groupName)
 {
-    const auto result = call(m_windowAssigner, "windowAssigner", {windowId, colorIndex, groupName});
+    const auto result = callChecked(m_windowAssigner, "windowAssigner", {windowId, colorIndex, groupName});
     if (!result) {
-        return 0;
-    }
-
-    if (result->hasProperty(u"error"_s)) {
-        fail(result->property(u"error"_s).toString(), result->property(u"message"_s).toString());
         return 0;
     }
     if (!result->hasProperty(u"color"_s)) {
@@ -145,6 +140,20 @@ std::optional<QJSValue> ColorGroupsDBus::call(QJSValue &callback, const char *na
     if (result.isError()) {
         qCWarning(TASKMANAGER_DEBUG) << name << "threw:" << result.toString();
         fail(u"Failed"_s, result.toString());
+        return std::nullopt;
+    }
+    return result;
+}
+
+// Like call(), but also reports a callback's {error, message} answer as a bus error.
+std::optional<QJSValue> ColorGroupsDBus::callChecked(QJSValue &callback, const char *name, const QJSValueList &args)
+{
+    const auto result = call(callback, name, args);
+    if (!result) {
+        return std::nullopt;
+    }
+    if (result->hasProperty(u"error"_s)) {
+        fail(result->property(u"error"_s).toString(), result->property(u"message"_s).toString());
         return std::nullopt;
     }
     return result;

@@ -54,6 +54,7 @@ public Q_SLOTS:
 
 private:
     std::optional<QJSValue> call(QJSValue &callback, const char *name, const QJSValueList &args);
+    std::optional<QJSValue> callChecked(QJSValue &callback, const char *name, const QJSValueList &args);
     void fail(const QString &error, const QString &message);
 
     QJSValue m_windowLister;
